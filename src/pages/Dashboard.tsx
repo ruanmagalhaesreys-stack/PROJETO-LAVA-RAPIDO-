@@ -63,7 +63,7 @@ const Dashboard = () => {
   return <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground shadow-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-normal">Lava Rápido Inglaterra</h1>
+          <h1 className="font-normal text-3xl">Lava Rápido Inglaterra</h1>
           <Button variant="ghost" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
             <LogOut className="h-5 w-5 mr-2" />
             Sair
