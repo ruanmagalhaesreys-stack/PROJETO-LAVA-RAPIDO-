@@ -33,6 +33,7 @@ interface Client {
   client_phone: string;
   car_make_model: string;
   car_plate: string;
+  car_color: string;
 }
 
 interface ServicePrice {
@@ -51,6 +52,7 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
     clientPhone: "",
     carMakeModel: "",
     carPlate: "",
+    carColor: "",
     serviceName: "",
     value: "",
   });
@@ -96,6 +98,7 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
           clientPhone: data.client_phone,
           carMakeModel: data.car_make_model,
           carPlate: data.car_plate,
+          carColor: data.car_color || "",
           serviceName: "",
           value: "",
         });
@@ -139,6 +142,7 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
             client_phone: formData.clientPhone,
             car_make_model: formData.carMakeModel,
             car_plate: formData.carPlate.toUpperCase(),
+            car_color: formData.carColor,
           })
           .select()
           .single();
@@ -151,6 +155,7 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
           .update({
             car_make_model: formData.carMakeModel,
             car_plate: formData.carPlate.toUpperCase(),
+            car_color: formData.carColor,
           })
           .eq("id", clientId);
       }
@@ -164,6 +169,8 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
           client_name: formData.clientName,
           client_phone: formData.clientPhone,
           car_plate: formData.carPlate.toUpperCase(),
+          car_make_model: formData.carMakeModel,
+          car_color: formData.carColor,
           service_name: formData.serviceName,
           value: parseFloat(formData.value),
           status: "pendente",
@@ -190,6 +197,7 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
       clientPhone: "",
       carMakeModel: "",
       carPlate: "",
+      carColor: "",
       serviceName: "",
       value: "",
     });
@@ -266,6 +274,18 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
                   }
                   required
                   maxLength={7}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="carColor">Cor do Carro</Label>
+                <Input
+                  id="carColor"
+                  value={formData.carColor}
+                  onChange={(e) =>
+                    setFormData({ ...formData, carColor: e.target.value })
+                  }
+                  placeholder="Ex: Prata, Preto, Branco..."
                 />
               </div>
             </div>

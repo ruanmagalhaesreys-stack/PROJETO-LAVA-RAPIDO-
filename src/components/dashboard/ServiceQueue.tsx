@@ -12,6 +12,8 @@ interface Service {
   client_name: string;
   client_phone: string;
   car_plate: string;
+  car_make_model: string;
+  car_color: string;
   service_name: string;
   value: number;
   status: string;
@@ -150,9 +152,11 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-lg">{service.client_name}</h3>
+                    <h3 className="font-semibold text-lg">
+                      {service.car_make_model} {service.car_color && `- ${service.car_color}`}
+                    </h3>
                     <p className="text-sm text-muted-foreground">
-                      {service.car_plate}
+                      {service.client_name} | {service.car_plate}
                     </p>
                   </div>
                   <Badge

@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       clients: {
         Row: {
+          car_color: string | null
           car_make_model: string
           car_plate: string
           client_name: string
@@ -26,6 +27,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          car_color?: string | null
           car_make_model: string
           car_plate: string
           client_name: string
@@ -36,6 +38,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          car_color?: string | null
           car_make_model?: string
           car_plate?: string
           client_name?: string
@@ -49,6 +52,8 @@ export type Database = {
       }
       daily_services: {
         Row: {
+          car_color: string | null
+          car_make_model: string | null
           car_plate: string
           client_id: string | null
           client_name: string
@@ -62,6 +67,8 @@ export type Database = {
           value: number
         }
         Insert: {
+          car_color?: string | null
+          car_make_model?: string | null
           car_plate: string
           client_id?: string | null
           client_name: string
@@ -75,6 +82,8 @@ export type Database = {
           value: number
         }
         Update: {
+          car_color?: string | null
+          car_make_model?: string | null
           car_plate?: string
           client_id?: string | null
           client_name?: string
@@ -93,6 +102,127 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_reminders: {
+        Row: {
+          created_at: string
+          expense_id: string
+          id: string
+          shown_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expense_id: string
+          id?: string
+          shown_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expense_id?: string
+          id?: string
+          shown_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_reminders_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_types: {
+        Row: {
+          available_day: number
+          created_at: string
+          default_value: number | null
+          due_day: number
+          expense_name: string
+          id: string
+          is_fixed: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          available_day: number
+          created_at?: string
+          default_value?: number | null
+          due_day: number
+          expense_name: string
+          id?: string
+          is_fixed?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          available_day?: number
+          created_at?: string
+          default_value?: number | null
+          due_day?: number
+          expense_name?: string
+          id?: string
+          is_fixed?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount_paid: number | null
+          created_at: string
+          description: string | null
+          expense_name: string
+          expense_type_id: string
+          id: string
+          month_year: string
+          paid_at: string | null
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          created_at?: string
+          description?: string | null
+          expense_name: string
+          expense_type_id: string
+          id?: string
+          month_year: string
+          paid_at?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number | null
+          created_at?: string
+          description?: string | null
+          expense_name?: string
+          expense_type_id?: string
+          id?: string
+          month_year?: string
+          paid_at?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_expense_type_id_fkey"
+            columns: ["expense_type_id"]
+            isOneToOne: false
+            referencedRelation: "expense_types"
             referencedColumns: ["id"]
           },
         ]
@@ -129,6 +259,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      initialize_expense_types: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       initialize_service_prices: {
         Args: { p_user_id: string }
         Returns: undefined
