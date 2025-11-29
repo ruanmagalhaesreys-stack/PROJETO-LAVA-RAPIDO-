@@ -16,12 +16,23 @@ interface ServicePrice {
   price: number;
 }
 
+interface ExpenseType {
+  id: string;
+  expense_name: string;
+  default_value: number | null;
+  is_fixed: boolean;
+  available_day: number;
+  due_day: number;
+}
+
 const AdminPanel = ({ userId }: AdminPanelProps) => {
   const [loading, setLoading] = useState(false);
   const [prices, setPrices] = useState<ServicePrice[]>([]);
+  const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
 
   useEffect(() => {
     fetchPrices();
+    fetchExpenseTypes();
   }, [userId]);
 
   const fetchPrices = async () => {
@@ -43,6 +54,22 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
     }
   };
 
+  const fetchExpenseTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("expense_types")
+        .select("*")
+        .eq("user_id", userId)
+        .order("expense_name");
+
+      if (error) throw error;
+      setExpenseTypes(data || []);
+    } catch (error) {
+      console.error("Error fetching expense types:", error);
+      toast.error("Erro ao carregar tipos de despesa");
+    }
+  };
+
   const handlePriceChange = (serviceName: string, newPrice: string) => {
     setPrices((prev) =>
       prev.map((p) =>
@@ -50,6 +77,12 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
           ? { ...p, price: parseFloat(newPrice) || 0 }
           : p
       )
+    );
+  };
+
+  const handleExpenseTypeChange = (id: string, field: string, value: any) => {
+    setExpenseTypes((prev) =>
+      prev.map((et) => (et.id === id ? { ...et, [field]: value } : et))
     );
   };
 
@@ -75,6 +108,31 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
     }
   };
 
+  const handleSaveExpenseTypes = async () => {
+    setLoading(true);
+    try {
+      for (const expenseType of expenseTypes) {
+        const { error } = await supabase
+          .from("expense_types")
+          .update({
+            default_value: expenseType.default_value,
+            available_day: expenseType.available_day,
+            due_day: expenseType.due_day,
+          })
+          .eq("id", expenseType.id);
+
+        if (error) throw error;
+      }
+
+      toast.success("Configurações de despesas atualizadas!");
+    } catch (error: any) {
+      console.error("Error updating expense types:", error);
+      toast.error(error.message || "Erro ao atualizar configurações");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading && prices.length === 0) {
     return (
       <div className="flex justify-center py-8">
@@ -88,14 +146,15 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
       <div className="flex items-center gap-3">
         <DollarSign className="h-8 w-8 text-accent" />
         <div>
-          <h2 className="text-2xl font-bold">Gerenciar Preços</h2>
+          <h2 className="text-2xl font-bold">Configurações do Admin</h2>
           <p className="text-muted-foreground">
-            Atualize os valores padrão dos serviços
+            Gerencie preços e configurações de despesas
           </p>
         </div>
       </div>
 
       <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Preços dos Serviços</h3>
         <div className="space-y-4">
           {prices.map((price) => (
             <div key={price.service_name} className="flex items-center gap-4">
@@ -131,6 +190,90 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
               </>
             ) : (
               "Salvar Novos Preços"
+            )}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Configurações de Despesas</h3>
+        <div className="space-y-6">
+          {expenseTypes.map((expenseType) => (
+            <div key={expenseType.id} className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{expenseType.expense_name}</h4>
+              
+              {expenseType.is_fixed && (
+                <div>
+                  <Label>Valor Fixo</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={expenseType.default_value || 0}
+                    onChange={(e) =>
+                      handleExpenseTypeChange(
+                        expenseType.id,
+                        "default_value",
+                        parseFloat(e.target.value)
+                      )
+                    }
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Disponível a partir do dia</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={expenseType.available_day}
+                    onChange={(e) =>
+                      handleExpenseTypeChange(
+                        expenseType.id,
+                        "available_day",
+                        parseInt(e.target.value)
+                      )
+                    }
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label>Dia limite para pagamento</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={expenseType.due_day}
+                    onChange={(e) =>
+                      handleExpenseTypeChange(
+                        expenseType.id,
+                        "due_day",
+                        parseInt(e.target.value)
+                      )
+                    }
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <Button
+            onClick={handleSaveExpenseTypes}
+            className="w-full mt-6 bg-accent hover:bg-accent/90"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar Configurações de Despesas"
             )}
           </Button>
         </div>
