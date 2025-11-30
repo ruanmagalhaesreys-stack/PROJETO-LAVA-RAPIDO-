@@ -30,6 +30,8 @@ interface Expense {
   amount_paid: number;
   paid_at: string;
   description: string | null;
+  category: string | null;
+  is_recurring: boolean;
 }
 
 const HistoryPanel = ({ userId }: HistoryPanelProps) => {
@@ -262,6 +264,7 @@ const HistoryPanel = ({ userId }: HistoryPanelProps) => {
                     <tr>
                       <th className="px-4 py-3 text-left text-sm font-medium">Data Pagamento</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Tipo</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">Categoria</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Valor</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Descrição</th>
                     </tr>
@@ -272,7 +275,12 @@ const HistoryPanel = ({ userId }: HistoryPanelProps) => {
                         <td className="px-4 py-3 text-sm">
                           {format(new Date(expense.paid_at), "dd/MM/yyyy")}
                         </td>
-                        <td className="px-4 py-3 text-sm">{expense.expense_name}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {expense.is_recurring ? "Recorrente" : "Adicional"}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {expense.category || expense.expense_name}
+                        </td>
                         <td className="px-4 py-3 text-sm font-medium">
                           R$ {expense.amount_paid.toFixed(2)}
                         </td>
