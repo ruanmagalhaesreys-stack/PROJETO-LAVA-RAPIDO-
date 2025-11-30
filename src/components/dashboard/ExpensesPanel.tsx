@@ -11,9 +11,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { DollarSign, Lightbulb, Droplet, Home, User, ShoppingBag } from "lucide-react";
+import { 
+  DollarSign, 
+  Lightbulb, 
+  Droplet, 
+  Home, 
+  User, 
+  UtensilsCrossed, 
+  ShoppingBag, 
+  Wrench, 
+  Building, 
+  TrendingUp,
+  Plus
+} from "lucide-react";
 import { format } from "date-fns";
 import PayExpenseModal from "./PayExpenseModal";
+import AddExpenseModal from "./AddExpenseModal";
 
 interface ExpensesPanelProps {
   userId: string;
@@ -30,7 +43,7 @@ interface ExpenseType {
 
 interface Expense {
   id: string;
-  expense_type_id: string;
+  expense_type_id: string | null;
   expense_name: string;
   status: string;
   month_year: string;
@@ -38,6 +51,9 @@ interface Expense {
   amount_paid: number | null;
   description: string | null;
   requested_at: string;
+  is_recurring: boolean;
+  category: string | null;
+  due_date: string | null;
 }
 
 const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
@@ -47,6 +63,7 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchExpenseTypes();
@@ -82,6 +99,7 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
         .select("*")
         .eq("user_id", userId)
         .eq("month_year", selectedMonth)
+        .order("is_recurring", { ascending: false })
         .order("expense_name");
 
       if (error) throw error;
@@ -115,6 +133,7 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
               expense_name: type.expense_name,
               status: "pendente",
               month_year: selectedMonth,
+              is_recurring: true,
             });
           } catch (error) {
             console.error(`Error creating expense for ${type.expense_name}:`, error);
@@ -131,8 +150,10 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
     setShowPayModal(true);
   };
 
-  const getExpenseIcon = (name: string) => {
-    switch (name.toLowerCase()) {
+  const getExpenseIcon = (name: string, category?: string | null) => {
+    const nameOrCat = (category || name).toLowerCase();
+    
+    switch (nameOrCat) {
       case "luz":
         return <Lightbulb className="h-6 w-6" />;
       case "água":
@@ -141,8 +162,16 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
         return <Home className="h-6 w-6" />;
       case "funcionário":
         return <User className="h-6 w-6" />;
+      case "alimentação":
+        return <UtensilsCrossed className="h-6 w-6" />;
       case "produtos":
         return <ShoppingBag className="h-6 w-6" />;
+      case "manutenção":
+        return <Wrench className="h-6 w-6" />;
+      case "estrutura":
+        return <Building className="h-6 w-6" />;
+      case "investimento":
+        return <TrendingUp className="h-6 w-6" />;
       default:
         return <DollarSign className="h-6 w-6" />;
     }
@@ -185,79 +214,186 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
         </Select>
       </div>
 
-      {loading ? (
+{loading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {expenses.map((expense) => {
-            const typeInfo = getExpenseTypeInfo(expense.expense_type_id);
-            return (
-              <Card key={expense.id} className="p-6 shadow-card hover:shadow-hover transition-shadow">
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                        {getExpenseIcon(expense.expense_name)}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{expense.expense_name}</h3>
-                        {typeInfo && (
-                          <p className="text-xs text-muted-foreground">
-                            Vence: dia {typeInfo.due_day}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <Badge
-                      className={
-                        expense.status === "pago"
-                          ? "bg-status-ready text-white"
-                          : "bg-status-pending text-white"
-                      }
-                    >
-                      {expense.status === "pago" ? "PAGO" : "PENDENTE"}
-                    </Badge>
-                  </div>
+        <>
+          {/* Recurring Expenses Section */}
+          {expenses.some((e) => e.is_recurring) && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-px bg-border flex-1" />
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Contas Fixas
+                </h3>
+                <div className="h-px bg-border flex-1" />
+              </div>
 
-                  {expense.status === "pago" ? (
-                    <div className="space-y-1">
-                      <p className="text-sm">
-                        <span className="font-medium">Pago em:</span>{" "}
-                        {expense.paid_at ? format(new Date(expense.paid_at), "dd/MM/yyyy") : "-"}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium">Valor:</span> R${" "}
-                        {expense.amount_paid?.toFixed(2) || "0.00"}
-                      </p>
-                      {expense.description && (
-                        <p className="text-sm">
-                          <span className="font-medium">Descrição:</span> {expense.description}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {typeInfo?.is_fixed && typeInfo.default_value && (
-                        <p className="text-sm">
-                          <span className="font-medium">Valor:</span> R${" "}
-                          {typeInfo.default_value.toFixed(2)}
-                        </p>
-                      )}
-                      <Button
-                        onClick={() => handlePayExpense(expense)}
-                        className="w-full bg-accent hover:bg-accent/90"
-                      >
-                        Paguei
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {expenses
+                  .filter((expense) => expense.is_recurring)
+                  .map((expense) => {
+                    const typeInfo = expense.expense_type_id ? getExpenseTypeInfo(expense.expense_type_id) : null;
+                    return (
+                      <Card key={expense.id} className="p-6 shadow-card hover:shadow-hover transition-shadow">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                {getExpenseIcon(expense.expense_name, expense.category)}
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-lg">{expense.expense_name}</h3>
+                                {typeInfo && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Vence: dia {typeInfo.due_day}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <Badge
+                              className={
+                                expense.status === "pago"
+                                  ? "bg-status-ready text-white"
+                                  : "bg-status-pending text-white"
+                              }
+                            >
+                              {expense.status === "pago" ? "PAGO" : "PENDENTE"}
+                            </Badge>
+                          </div>
+
+                          {expense.status === "pago" ? (
+                            <div className="space-y-1">
+                              <p className="text-sm">
+                                <span className="font-medium">Pago em:</span>{" "}
+                                {expense.paid_at ? format(new Date(expense.paid_at), "dd/MM/yyyy") : "-"}
+                              </p>
+                              <p className="text-sm">
+                                <span className="font-medium">Valor:</span> R${" "}
+                                {expense.amount_paid?.toFixed(2) || "0.00"}
+                              </p>
+                              {expense.description && (
+                                <p className="text-sm">
+                                  <span className="font-medium">Descrição:</span> {expense.description}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {typeInfo?.is_fixed && typeInfo.default_value && (
+                                <p className="text-sm">
+                                  <span className="font-medium">Valor:</span> R${" "}
+                                  {typeInfo.default_value.toFixed(2)}
+                                </p>
+                              )}
+                              <Button
+                                onClick={() => handlePayExpense(expense)}
+                                className="w-full bg-accent hover:bg-accent/90"
+                              >
+                                Paguei
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Additional Expenses Section */}
+          <div className="space-y-4 mt-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="h-px bg-border flex-1" />
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Despesas Adicionais
+                </h3>
+                <div className="h-px bg-border flex-1" />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setShowAddModal(true)}
+              className="w-full bg-primary hover:bg-primary/90"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Despesa
+            </Button>
+
+            {expenses.some((e) => !e.is_recurring) && (
+              <div className="grid gap-4 md:grid-cols-1">
+                {expenses
+                  .filter((expense) => !expense.is_recurring)
+                  .map((expense) => (
+                    <Card key={expense.id} className="p-4 shadow-card hover:shadow-hover transition-shadow">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                            {getExpenseIcon(expense.expense_name, expense.category)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-base uppercase">{expense.category || expense.expense_name}</h3>
+                              <Badge
+                                className={
+                                  expense.status === "pago"
+                                    ? "bg-status-ready text-white"
+                                    : "bg-status-pending text-white"
+                                }
+                              >
+                                {expense.status === "pago" ? "PAGO" : "PENDENTE"}
+                              </Badge>
+                            </div>
+                            
+                            {expense.description && (
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {expense.description}
+                              </p>
+                            )}
+
+                            <div className="flex flex-wrap gap-3 text-sm">
+                              {expense.status === "pago" ? (
+                                <>
+                                  <span>
+                                    Pago em: {expense.paid_at ? format(new Date(expense.paid_at), "dd/MM/yyyy") : "-"}
+                                  </span>
+                                </>
+                              ) : (
+                                expense.due_date && (
+                                  <span className="text-destructive">
+                                    Vence: {format(new Date(expense.due_date), "dd/MM/yyyy")}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2">
+                          <p className="font-bold text-lg whitespace-nowrap">
+                            R$ {expense.status === "pago" ? expense.amount_paid?.toFixed(2) : "0.00"}
+                          </p>
+                          {expense.status === "pendente" && (
+                            <Button
+                              onClick={() => handlePayExpense(expense)}
+                              size="sm"
+                              className="bg-accent hover:bg-accent/90"
+                            >
+                              Paguei
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {expenses.length === 0 && !loading && (
@@ -277,6 +413,15 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
         onSuccess={() => {
           fetchExpenses();
           setShowPayModal(false);
+        }}
+      />
+
+      <AddExpenseModal
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        userId={userId}
+        onSuccess={() => {
+          fetchExpenses();
         }}
       />
     </div>

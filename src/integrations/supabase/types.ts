@@ -177,11 +177,14 @@ export type Database = {
       expenses: {
         Row: {
           amount_paid: number | null
+          category: string | null
           created_at: string
           description: string | null
+          due_date: string | null
           expense_name: string
-          expense_type_id: string
+          expense_type_id: string | null
           id: string
+          is_recurring: boolean | null
           month_year: string
           paid_at: string | null
           requested_at: string
@@ -191,11 +194,14 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          category?: string | null
           created_at?: string
           description?: string | null
+          due_date?: string | null
           expense_name: string
-          expense_type_id: string
+          expense_type_id?: string | null
           id?: string
+          is_recurring?: boolean | null
           month_year: string
           paid_at?: string | null
           requested_at?: string
@@ -205,11 +211,14 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          category?: string | null
           created_at?: string
           description?: string | null
+          due_date?: string | null
           expense_name?: string
-          expense_type_id?: string
+          expense_type_id?: string | null
           id?: string
+          is_recurring?: boolean | null
           month_year?: string
           paid_at?: string | null
           requested_at?: string
