@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 
 interface AddExpenseModalProps {
@@ -108,14 +108,17 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px] glass-effect border-2 border-border/50">
         <DialogHeader>
-          <DialogTitle>Adicionar Despesa</DialogTitle>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-accent" />
+            Adicionar Despesa
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <Label htmlFor="value">Valor (R$)*</Label>
+            <Label htmlFor="value" className="font-semibold text-base">💰 Valor (R$)*</Label>
             <Input
               id="value"
               type="number"
@@ -126,22 +129,23 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
               placeholder="0.00"
               disabled={loading}
               required
+              className="mt-2 h-12 bg-secondary/50 font-bold text-lg"
             />
           </div>
 
           <div>
-            <Label htmlFor="category">Categoria*</Label>
+            <Label htmlFor="category" className="font-semibold text-base">📋 Categoria*</Label>
             <Select
               value={formData.category}
               onValueChange={(value) => setFormData({ ...formData, category: value })}
               disabled={loading}
             >
-              <SelectTrigger className="bg-background">
+              <SelectTrigger className="mt-2 h-12 bg-secondary/50 font-semibold">
                 <SelectValue placeholder="Selecione a categoria" />
               </SelectTrigger>
-              <SelectContent className="bg-background z-50">
+              <SelectContent className="bg-popover z-50">
                 {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
+                  <SelectItem key={cat} value={cat} className="font-semibold">
                     {cat}
                   </SelectItem>
                 ))}
@@ -150,7 +154,7 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
           </div>
 
           <div>
-            <Label htmlFor="description">Descrição</Label>
+            <Label htmlFor="description" className="font-semibold text-base">📝 Descrição</Label>
             <Textarea
               id="description"
               value={formData.description}
@@ -158,25 +162,27 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
               placeholder="Detalhes sobre o gasto..."
               disabled={loading}
               rows={3}
+              className="mt-2 bg-secondary/50"
             />
           </div>
 
           <div>
-            <Label>Status*</Label>
+            <Label className="font-semibold text-base mb-3 block">✅ Status*</Label>
             <RadioGroup
               value={formData.status}
               onValueChange={(value) => setFormData({ ...formData, status: value })}
               disabled={loading}
+              className="space-y-3"
             >
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
                 <RadioGroupItem value="pago" id="pago" />
-                <Label htmlFor="pago" className="cursor-pointer font-normal">
+                <Label htmlFor="pago" className="cursor-pointer font-semibold flex-1">
                   Já paguei
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
                 <RadioGroupItem value="pendente" id="pendente" />
-                <Label htmlFor="pendente" className="cursor-pointer font-normal">
+                <Label htmlFor="pendente" className="cursor-pointer font-semibold flex-1">
                   Pendente
                 </Label>
               </div>
@@ -185,7 +191,7 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
 
           {formData.status === "pendente" && (
             <div>
-              <Label htmlFor="dueDate">Data Limite para Pagamento*</Label>
+              <Label htmlFor="dueDate" className="font-semibold text-base">📅 Data Limite para Pagamento*</Label>
               <Input
                 id="dueDate"
                 type="date"
@@ -193,6 +199,7 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                 disabled={loading}
                 required
+                className="mt-2 h-12 bg-secondary/50 font-semibold"
               />
             </div>
           )}
@@ -203,22 +210,25 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
-              className="flex-1"
+              className="flex-1 h-12 font-semibold"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-accent hover:bg-accent/90"
+              className="flex-1 h-12 bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold"
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Salvando...
                 </>
               ) : (
-                "Adicionar Despesa"
+                <>
+                  <Plus className="mr-2 h-5 w-5" />
+                  ADICIONAR
+                </>
               )}
             </Button>
           </div>

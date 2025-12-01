@@ -4,39 +4,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, Plus, Car, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import ServiceQueue from "@/components/dashboard/ServiceQueue";
 import AddServiceModal from "@/components/dashboard/AddServiceModal";
 import AdminPanel from "@/components/dashboard/AdminPanel";
 import HistoryPanel from "@/components/dashboard/HistoryPanel";
 import ExpensesPanel from "@/components/dashboard/ExpensesPanel";
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   useEffect(() => {
     checkUser();
   }, []);
+
   const checkUser = async () => {
     try {
       const {
-        data: {
-          session
-        }
+        data: { session }
       } = await supabase.auth.getSession();
+      
       if (!session) {
         navigate("/auth");
         return;
       }
+      
       setUserId(session.user.id);
 
       // Initialize default prices if not exists
-      const {
-        error: initError
-      } = await supabase.rpc('initialize_service_prices', {
+      const { error: initError } = await supabase.rpc('initialize_service_prices', {
         p_user_id: session.user.id
       });
       if (initError) {
@@ -44,9 +45,7 @@ const Dashboard = () => {
       }
 
       // Initialize expense types if not exists
-      const {
-        error: expenseInitError
-      } = await supabase.rpc('initialize_expense_types', {
+      const { error: expenseInitError } = await supabase.rpc('initialize_expense_types', {
         p_user_id: session.user.id
       });
       if (expenseInitError) {
@@ -62,13 +61,13 @@ const Dashboard = () => {
       navigate("/auth");
     }
   };
+
   const checkExpenseReminders = async (userId: string) => {
     try {
       const today = new Date();
       const todayStr = format(today, "yyyy-MM-dd");
       const currentDay = today.getDate();
 
-      // Get all expense types
       const { data: expenseTypes, error: typesError } = await supabase
         .from("expense_types")
         .select("*")
@@ -76,7 +75,6 @@ const Dashboard = () => {
 
       if (typesError) throw typesError;
 
-      // Get current month's pending expenses
       const currentMonthYear = format(today, "yyyy-MM");
       const { data: expenses, error: expensesError } = await supabase
         .from("expenses")
@@ -87,12 +85,10 @@ const Dashboard = () => {
 
       if (expensesError) throw expensesError;
 
-      // Check for reminders
       for (const expense of expenses || []) {
         const expenseType = expenseTypes?.find((et) => et.id === expense.expense_type_id);
         
         if (expenseType && currentDay === expenseType.due_day) {
-          // Check if reminder already shown today
           const { data: existingReminder } = await supabase
             .from("expense_reminders")
             .select("*")
@@ -102,12 +98,10 @@ const Dashboard = () => {
             .single();
 
           if (!existingReminder) {
-            // Show reminder
             toast.error(`⚠️ Lembrete de Pagamento: Hoje é o dia limite para pagar ${expense.expense_name}!`, {
               duration: 10000,
             });
 
-            // Save reminder
             await supabase.from("expense_reminders").insert({
               user_id: userId,
               expense_id: expense.id,
@@ -130,35 +124,83 @@ const Dashboard = () => {
       toast.error("Erro ao fazer logout");
     }
   };
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>;
+      </div>
+    );
   }
-  return <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground shadow-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="font-normal text-3xl">Lava Rápido Inglaterra</h1>
-          <Button variant="ghost" onClick={handleLogout} className="text-primary-foreground hover:bg-primary-foreground/10">
-            <LogOut className="h-5 w-5 mr-2" />
-            Sair
-          </Button>
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="bg-gradient-header border-b border-border/50 shadow-card backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-50"></div>
+                <div className="relative bg-gradient-primary p-2 rounded-lg">
+                  <Car className="h-7 w-7 text-primary-foreground" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  Lava Rápido Inglaterra
+                  <Sparkles className="h-5 w-5 text-accent" />
+                </h1>
+                <p className="text-xs text-muted-foreground font-medium">Sistema Premium de Gerenciamento</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="text-foreground hover:bg-secondary/50 hover:text-accent transition-all"
+            >
+              <LogOut className="h-5 w-5 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="expenses">Despesas</TabsTrigger>
-            <TabsTrigger value="history">Histórico</TabsTrigger>
-            <TabsTrigger value="admin">Admin</TabsTrigger>
+        <Tabs defaultValue="dashboard" className="space-y-8">
+          <TabsList className="grid w-full grid-cols-4 max-w-3xl mx-auto h-14 bg-card/50 backdrop-blur-sm p-1 rounded-xl">
+            <TabsTrigger 
+              value="dashboard"
+              className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg"
+            >
+              🏠 Dashboard
+            </TabsTrigger>
+            <TabsTrigger 
+              value="expenses"
+              className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg"
+            >
+              💰 Despesas
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history"
+              className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg"
+            >
+              📊 Histórico
+            </TabsTrigger>
+            <TabsTrigger 
+              value="admin"
+              className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg"
+            >
+              ⚙️ Admin
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-4">
+          <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">Serviços de Hoje</h2>
-              <Button onClick={() => setShowAddModal(true)} className="bg-accent hover:bg-accent/90">
+              <h2 className="text-3xl font-bold text-foreground">Serviços de Hoje</h2>
+              <Button 
+                onClick={() => setShowAddModal(true)} 
+                className="bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold"
+              >
                 <Plus className="h-5 w-5 mr-2" />
                 Novo Serviço
               </Button>
@@ -167,24 +209,31 @@ const Dashboard = () => {
             <ServiceQueue userId={userId!} refreshTrigger={refreshTrigger} onRefresh={() => setRefreshTrigger(prev => prev + 1)} />
           </TabsContent>
 
-          <TabsContent value="expenses">
+          <TabsContent value="expenses" className="animate-fade-in">
             <ExpensesPanel userId={userId!} />
           </TabsContent>
 
-          <TabsContent value="history">
+          <TabsContent value="history" className="animate-fade-in">
             <HistoryPanel userId={userId!} />
           </TabsContent>
 
-          <TabsContent value="admin">
+          <TabsContent value="admin" className="animate-fade-in">
             <AdminPanel userId={userId!} />
           </TabsContent>
         </Tabs>
       </main>
 
-      <AddServiceModal open={showAddModal} onOpenChange={setShowAddModal} userId={userId!} onSuccess={() => {
-      setRefreshTrigger(prev => prev + 1);
-      setShowAddModal(false);
-    }} />
-    </div>;
+      <AddServiceModal 
+        open={showAddModal} 
+        onOpenChange={setShowAddModal} 
+        userId={userId!} 
+        onSuccess={() => {
+          setRefreshTrigger(prev => prev + 1);
+          setShowAddModal(false);
+        }} 
+      />
+    </div>
+  );
 };
+
 export default Dashboard;

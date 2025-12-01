@@ -1,60 +1,67 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Premium Dark Design System - All colors MUST be HSL */
 
 @layer base {
   :root {
-    /* England Flag Colors - Navy Blue, Red, White */
-    --background: 0 0% 98%;
-    --foreground: 219 100% 25%;
+    /* Dark Premium Palette */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
     
-    --card: 0 0% 100%;
-    --card-foreground: 219 100% 25%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
     
-    --popover: 0 0% 100%;
-    --popover-foreground: 219 100% 25%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
     
-    /* Navy Blue Primary */
-    --primary: 219 100% 25%;
-    --primary-foreground: 0 0% 100%;
+    /* Vibrant Blue Primary */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --primary-glow: 217 91% 70%;
     
-    /* Red Accent */
-    --accent: 352 89% 41%;
-    --accent-foreground: 0 0% 100%;
+    /* Rose Accent */
+    --accent: 347 77% 50%;
+    --accent-foreground: 210 40% 98%;
+    --accent-glow: 347 77% 60%;
     
-    /* Light Gray Secondary */
-    --secondary: 210 20% 95%;
-    --secondary-foreground: 219 100% 25%;
+    /* Dark Secondary */
+    --secondary: 215 25% 27%;
+    --secondary-foreground: 210 40% 98%;
     
-    --muted: 210 20% 95%;
-    --muted-foreground: 219 40% 50%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
     
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
     
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 219 100% 25%;
+    --border: 215 28% 27%;
+    --input: 215 28% 27%;
+    --ring: 217 91% 60%;
     
     --radius: 0.75rem;
     
-    /* Status colors */
-    --status-pending: 45 93% 47%;
+    /* Status colors - emerald & amber */
+    --status-pending: 38 92% 50%;
     --status-ready: 142 76% 36%;
+    --status-success: 160 84% 39%;
     
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(219 100% 25%), hsl(219 80% 35%));
-    --gradient-accent: linear-gradient(135deg, hsl(352 89% 41%), hsl(352 70% 50%));
+    /* Premium Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(347 77% 50%), hsl(347 77% 60%));
+    --gradient-header: linear-gradient(135deg, hsl(217 33% 17%), hsl(222 47% 11%));
+    --gradient-card: linear-gradient(135deg, hsl(217 33% 17% / 0.5), hsl(217 33% 17% / 0.8));
+    --gradient-success: linear-gradient(135deg, hsl(160 84% 39%), hsl(142 76% 36%));
     
-    /* Shadows */
-    --shadow-card: 0 2px 8px hsl(219 100% 25% / 0.08);
-    --shadow-hover: 0 4px 16px hsl(219 100% 25% / 0.12);
+    /* Shadows with color */
+    --shadow-card: 0 4px 20px hsl(217 91% 60% / 0.08);
+    --shadow-hover: 0 8px 30px hsl(217 91% 60% / 0.15);
+    --shadow-glow: 0 0 40px hsl(217 91% 70% / 0.3);
+    --shadow-accent: 0 4px 20px hsl(347 77% 50% / 0.2);
+    --shadow-success: 0 4px 20px hsl(160 84% 39% / 0.2);
   }
 }
 
@@ -64,6 +71,59 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass-effect {
+    @apply bg-card/40 backdrop-blur-xl border border-border/50;
+  }
+  
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(135deg, hsl(217 91% 60%), hsl(347 77% 50%));
+    padding: 1px;
+    border-radius: var(--radius);
+  }
+  
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(217 91% 60%), hsl(347 77% 50%));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-hover;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-glow;
   }
 }

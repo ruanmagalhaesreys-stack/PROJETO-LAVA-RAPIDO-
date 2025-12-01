@@ -22,6 +22,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -38,6 +39,7 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          glow: "hsl(var(--accent-glow))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -50,14 +52,25 @@ export default {
         status: {
           pending: "hsl(var(--status-pending))",
           ready: "hsl(var(--status-ready))",
+          success: "hsl(var(--status-success))",
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
       },
       boxShadow: {
         card: "var(--shadow-card)",
         hover: "var(--shadow-hover)",
+        glow: "var(--shadow-glow)",
+        accent: "var(--shadow-accent)",
+        success: "var(--shadow-success)",
+      },
+      backgroundImage: {
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-accent": "var(--gradient-accent)",
+        "gradient-header": "var(--gradient-header)",
+        "gradient-card": "var(--gradient-card)",
+        "gradient-success": "var(--gradient-success)",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Car } from "lucide-react";
+import { Loader2, Car, Sparkles } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -15,7 +15,6 @@ const Auth = () => {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate("/dashboard");
@@ -57,78 +56,95 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary via-primary/90 to-accent p-4">
-      <Card className="w-full max-w-md p-8 shadow-hover">
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-accent/10 p-4 rounded-full mb-4">
-            <Car className="h-12 w-12 text-accent" />
-          </div>
-          <h1 className="text-3xl font-bold text-primary mb-2">
-            Lava Rápido Inglaterra
-          </h1>
-          <p className="text-muted-foreground text-center">
-            Sistema de Gerenciamento
-          </p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-pulse delay-700"></div>
+      </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="text-sm font-medium text-foreground block mb-2">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+      <Card className="w-full max-w-md glass-effect shadow-glow animate-fade-in relative z-10">
+        <div className="p-8">
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-gradient-primary rounded-full blur-xl opacity-50"></div>
+              <div className="relative bg-gradient-primary p-5 rounded-2xl">
+                <Car className="h-14 w-14 text-primary-foreground" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-2">
+              Lava Rápido Inglaterra
+              <Sparkles className="h-6 w-6 text-accent" />
+            </h1>
+            <p className="text-muted-foreground text-center text-lg">
+              Sistema de Gerenciamento Premium
+            </p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-5">
+            <div>
+              <label htmlFor="email" className="text-sm font-semibold text-foreground block mb-2 flex items-center gap-2">
+                📧 Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+                className="h-12 bg-secondary/50 border-border/50 focus:border-primary transition-all"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="text-sm font-semibold text-foreground block mb-2 flex items-center gap-2">
+                🔒 Senha
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+                minLength={6}
+                className="h-12 bg-secondary/50 border-border/50 focus:border-primary transition-all"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-12 text-lg font-bold bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-[1.02]"
               disabled={loading}
-            />
-          </div>
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Processando...
+                </>
+              ) : isLogin ? (
+                <>
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Entrar
+                </>
+              ) : (
+                "Criar Conta"
+              )}
+            </Button>
+          </form>
 
-          <div>
-            <label htmlFor="password" className="text-sm font-medium text-foreground block mb-2">
-              Senha
-            </label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium"
               disabled={loading}
-              minLength={6}
-            />
+            >
+              {isLogin ? "Não tem uma conta? Criar conta" : "Já tem uma conta? Entrar"}
+            </button>
           </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-accent hover:bg-accent/90"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processando...
-              </>
-            ) : isLogin ? (
-              "Entrar"
-            ) : (
-              "Criar Conta"
-            )}
-          </Button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            disabled={loading}
-          >
-            {isLogin ? "Não tem uma conta? Criar conta" : "Já tem uma conta? Entrar"}
-          </button>
         </div>
       </Card>
     </div>
