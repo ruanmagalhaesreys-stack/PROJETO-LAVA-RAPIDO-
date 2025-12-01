@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -11,51 +12,51 @@
     /* Dark Premium Palette */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    
+
     --card: 217 33% 17%;
     --card-foreground: 210 40% 98%;
-    
+
     --popover: 217 33% 17%;
     --popover-foreground: 210 40% 98%;
-    
+
     /* Vibrant Blue Primary */
     --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    --primary-foreground: 210 40% 98.0392%;
     --primary-glow: 217 91% 70%;
-    
+
     /* Rose Accent */
     --accent: 347 77% 50%;
     --accent-foreground: 210 40% 98%;
     --accent-glow: 347 77% 60%;
-    
+
     /* Dark Secondary */
     --secondary: 215 25% 27%;
     --secondary-foreground: 210 40% 98%;
-    
+
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
-    
+
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    
+
     --border: 215 28% 27%;
     --input: 215 28% 27%;
     --ring: 217 91% 60%;
-    
+
     --radius: 0.75rem;
-    
+
     /* Status colors - emerald & amber */
     --status-pending: 38 92% 50%;
     --status-ready: 142 76% 36%;
     --status-success: 160 84% 39%;
-    
+
     /* Premium Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
     --gradient-accent: linear-gradient(135deg, hsl(347 77% 50%), hsl(347 77% 60%));
     --gradient-header: linear-gradient(135deg, hsl(217 33% 17%), hsl(222 47% 11%));
     --gradient-card: linear-gradient(135deg, hsl(217 33% 17% / 0.5), hsl(217 33% 17% / 0.8));
     --gradient-success: linear-gradient(135deg, hsl(160 84% 39%), hsl(142 76% 36%));
-    
+
     /* Shadows with color */
     --shadow-card: 0 4px 20px hsl(217 91% 60% / 0.08);
     --shadow-hover: 0 8px 30px hsl(217 91% 60% / 0.15);
@@ -74,7 +75,7 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold tracking-tight;
   }
@@ -84,14 +85,14 @@
   .glass-effect {
     @apply bg-card/40 backdrop-blur-xl border border-border/50;
   }
-  
+
   .gradient-border {
     position: relative;
     background: linear-gradient(135deg, hsl(217 91% 60%), hsl(347 77% 50%));
     padding: 1px;
     border-radius: var(--radius);
   }
-  
+
   .gradient-border::before {
     content: '';
     position: absolute;
@@ -103,11 +104,11 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
   }
-  
+
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out;
   }
-  
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -118,11 +119,11 @@
       transform: translateY(0);
     }
   }
-  
+
   .hover-lift {
     @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-hover;
   }
-  
+
   .hover-glow {
     @apply transition-all duration-300 hover:shadow-glow;
   }
