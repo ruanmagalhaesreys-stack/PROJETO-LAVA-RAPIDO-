@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Sparkles, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 
 interface AddServiceModalProps {
@@ -130,7 +130,6 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
     setLoading(true);
 
     try {
-      // Upsert client
       let clientId = foundClient?.id;
 
       if (!clientId) {
@@ -160,7 +159,6 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
           .eq("id", clientId);
       }
 
-      // Insert service
       const { error: serviceError } = await supabase
         .from("daily_services")
         .insert({
@@ -205,28 +203,32 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-border/50">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Serviço</DialogTitle>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-accent" />
+            Adicionar Novo Serviço
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex gap-2">
             <Input
-              placeholder="Buscar por nome ou telefone..."
+              placeholder="🔍 Buscar por nome ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && searchClient()}
+              className="h-12 bg-secondary/50 font-medium"
             />
-            <Button onClick={searchClient} disabled={loading} variant="outline">
-              <Search className="h-4 w-4" />
+            <Button onClick={searchClient} disabled={loading} className="bg-primary hover:bg-primary/90 h-12 px-6">
+              <Search className="h-5 w-5" />
             </Button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <Label htmlFor="clientName">Nome Completo *</Label>
+                <Label htmlFor="clientName" className="font-semibold text-base">Nome Completo *</Label>
                 <Input
                   id="clientName"
                   value={formData.clientName}
@@ -235,11 +237,12 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
                   }
                   required
                   disabled={!!foundClient}
+                  className="mt-2 h-11 bg-secondary/50"
                 />
               </div>
 
               <div>
-                <Label htmlFor="clientPhone">Telefone (apenas números) *</Label>
+                <Label htmlFor="clientPhone" className="font-semibold text-base">Telefone (apenas números) *</Label>
                 <Input
                   id="clientPhone"
                   value={formData.clientPhone}
@@ -249,11 +252,12 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
                   required
                   disabled={!!foundClient}
                   placeholder="5511999999999"
+                  className="mt-2 h-11 bg-secondary/50"
                 />
               </div>
 
               <div>
-                <Label htmlFor="carMakeModel">Marca e Modelo *</Label>
+                <Label htmlFor="carMakeModel" className="font-semibold text-base">Marca e Modelo *</Label>
                 <Input
                   id="carMakeModel"
                   value={formData.carMakeModel}
@@ -261,11 +265,12 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
                     setFormData({ ...formData, carMakeModel: e.target.value })
                   }
                   required
+                  className="mt-2 h-11 bg-secondary/50"
                 />
               </div>
 
               <div>
-                <Label htmlFor="carPlate">Placa *</Label>
+                <Label htmlFor="carPlate" className="font-semibold text-base">Placa *</Label>
                 <Input
                   id="carPlate"
                   value={formData.carPlate}
@@ -274,11 +279,12 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
                   }
                   required
                   maxLength={7}
+                  className="mt-2 h-11 bg-secondary/50 font-mono font-bold"
                 />
               </div>
 
               <div>
-                <Label htmlFor="carColor">Cor do Carro</Label>
+                <Label htmlFor="carColor" className="font-semibold text-base">Cor do Carro</Label>
                 <Input
                   id="carColor"
                   value={formData.carColor}
@@ -286,24 +292,25 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
                     setFormData({ ...formData, carColor: e.target.value })
                   }
                   placeholder="Ex: Prata, Preto, Branco..."
+                  className="mt-2 h-11 bg-secondary/50"
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="serviceName">Serviço *</Label>
+              <Label htmlFor="serviceName" className="font-semibold text-base">Serviço *</Label>
               <Select
                 value={formData.serviceName}
                 onValueChange={handleServiceChange}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-2 h-11 bg-secondary/50 font-semibold">
                   <SelectValue placeholder="Selecione o serviço" />
                 </SelectTrigger>
                 <SelectContent>
                   {servicePrices.map((service) => (
                     <SelectItem key={service.service_name} value={service.service_name}>
-                      {service.service_name} - R$ {service.price.toFixed(2)}
+                      <span className="font-semibold">{service.service_name}</span> - R$ {service.price.toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -311,29 +318,32 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
             </div>
 
             <div>
-              <Label htmlFor="value">Valor do Serviço *</Label>
+              <Label htmlFor="value" className="font-semibold text-base">Valor do Serviço *</Label>
               <Input
                 id="value"
                 type="number"
                 step="0.01"
                 value={formData.value}
                 readOnly
-                className="bg-muted"
+                className="mt-2 h-11 bg-muted font-bold text-lg text-accent"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-accent hover:bg-accent/90"
+              className="w-full bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
               disabled={loading}
             >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Adicionando...
                 </>
               ) : (
-                "Adicionar Serviço"
+                <>
+                  <UserPlus className="mr-2 h-5 w-5" />
+                  ADICIONAR SERVIÇO
+                </>
               )}
             </Button>
           </form>

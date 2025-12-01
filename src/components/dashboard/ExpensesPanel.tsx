@@ -22,7 +22,8 @@ import {
   Wrench, 
   Building, 
   TrendingUp,
-  Plus
+  Plus,
+  Sparkles
 } from "lucide-react";
 import { format } from "date-fns";
 import PayExpenseModal from "./PayExpenseModal";
@@ -182,20 +183,23 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <DollarSign className="h-8 w-8 text-accent" />
           <div>
-            <h2 className="text-2xl font-bold">Despesas do Mês</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-3xl font-bold flex items-center gap-2">
+              Despesas do Mês
+              <Sparkles className="h-6 w-6 text-accent" />
+            </h2>
+            <p className="text-muted-foreground text-lg">
               Gerencie as despesas mensais do lava rápido
             </p>
           </div>
         </div>
 
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px] h-11 bg-secondary/50 font-semibold">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -220,79 +224,96 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
         </div>
       ) : (
         <>
-          {/* Recurring Expenses Section */}
           {expenses.some((e) => e.is_recurring) && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <div className="h-px bg-border flex-1" />
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Contas Fixas
+                <h3 className="text-lg font-bold text-muted-foreground uppercase tracking-wider">
+                  📌 Contas Fixas
                 </h3>
                 <div className="h-px bg-border flex-1" />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {expenses
                   .filter((expense) => expense.is_recurring)
                   .map((expense) => {
                     const typeInfo = expense.expense_type_id ? getExpenseTypeInfo(expense.expense_type_id) : null;
+                    const isPaid = expense.status === "pago";
+                    
                     return (
-                      <Card key={expense.id} className="p-6 shadow-card hover:shadow-hover transition-shadow">
-                        <div className="space-y-3">
+                      <Card 
+                        key={expense.id} 
+                        className={`glass-effect hover-lift overflow-hidden ${
+                          isPaid ? "border-l-4 border-l-status-success" : "border-l-4 border-l-status-pending"
+                        }`}
+                      >
+                        <div className="p-6 space-y-4">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                                {getExpenseIcon(expense.expense_name, expense.category)}
+                              <div className={`p-3 rounded-xl ${
+                                isPaid ? "bg-status-success/20" : "bg-status-pending/20"
+                              }`}>
+                                <div className={isPaid ? "text-status-success" : "text-status-pending"}>
+                                  {getExpenseIcon(expense.expense_name, expense.category)}
+                                </div>
                               </div>
                               <div>
-                                <h3 className="font-semibold text-lg">{expense.expense_name}</h3>
+                                <h3 className="font-bold text-lg">{expense.expense_name}</h3>
                                 {typeInfo && (
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className="text-xs text-muted-foreground font-semibold">
                                     Vence: dia {typeInfo.due_day}
                                   </p>
                                 )}
                               </div>
                             </div>
                             <Badge
-                              className={
-                                expense.status === "pago"
-                                  ? "bg-status-ready text-white"
-                                  : "bg-status-pending text-white"
-                              }
+                              className={`font-bold px-3 py-1 ${
+                                isPaid
+                                  ? "bg-status-success/20 text-status-success border border-status-success/30"
+                                  : "bg-status-pending/20 text-status-pending border border-status-pending/30"
+                              }`}
                             >
-                              {expense.status === "pago" ? "PAGO" : "PENDENTE"}
+                              {isPaid ? "✓ PAGO" : "⏳ PENDENTE"}
                             </Badge>
                           </div>
 
-                          {expense.status === "pago" ? (
-                            <div className="space-y-1">
-                              <p className="text-sm">
-                                <span className="font-medium">Pago em:</span>{" "}
-                                {expense.paid_at ? format(new Date(expense.paid_at), "dd/MM/yyyy") : "-"}
-                              </p>
-                              <p className="text-sm">
-                                <span className="font-medium">Valor:</span> R${" "}
-                                {expense.amount_paid?.toFixed(2) || "0.00"}
-                              </p>
+                          {isPaid ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-semibold text-muted-foreground">Pago em:</span>
+                                <span className="font-bold">
+                                  {expense.paid_at ? format(new Date(expense.paid_at), "dd/MM/yyyy") : "-"}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-muted-foreground text-sm">Valor:</span>
+                                <span className="text-xl font-bold text-status-success">
+                                  R$ {expense.amount_paid?.toFixed(2) || "0.00"}
+                                </span>
+                              </div>
                               {expense.description && (
-                                <p className="text-sm">
-                                  <span className="font-medium">Descrição:</span> {expense.description}
+                                <p className="text-sm text-muted-foreground italic">
+                                  {expense.description}
                                 </p>
                               )}
                             </div>
                           ) : (
                             <div className="space-y-3">
                               {typeInfo?.is_fixed && typeInfo.default_value && (
-                                <p className="text-sm">
-                                  <span className="font-medium">Valor:</span> R${" "}
-                                  {typeInfo.default_value.toFixed(2)}
-                                </p>
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-muted-foreground text-sm">Valor:</span>
+                                  <span className="text-xl font-bold">
+                                    R$ {typeInfo.default_value.toFixed(2)}
+                                  </span>
+                                </div>
                               )}
                               <Button
                                 onClick={() => handlePayExpense(expense)}
-                                className="w-full bg-accent hover:bg-accent/90"
+                                className="w-full bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold"
                               >
-                                Paguei
+                                <DollarSign className="h-5 w-5 mr-2" />
+                                PAGUEI
                               </Button>
                             </div>
                           )}
@@ -304,13 +325,12 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
             </div>
           )}
 
-          {/* Additional Expenses Section */}
           <div className="space-y-4 mt-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 flex-1">
                 <div className="h-px bg-border flex-1" />
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Despesas Adicionais
+                <h3 className="text-lg font-bold text-muted-foreground uppercase tracking-wider">
+                  📋 Despesas Adicionais
                 </h3>
                 <div className="h-px bg-border flex-1" />
               </div>
@@ -318,9 +338,9 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
 
             <Button
               onClick={() => setShowAddModal(true)}
-              className="w-full bg-primary hover:bg-primary/90"
+              className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-5 w-5" />
               Adicionar Despesa
             </Button>
 
@@ -328,68 +348,83 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
               <div className="grid gap-4 md:grid-cols-1">
                 {expenses
                   .filter((expense) => !expense.is_recurring)
-                  .map((expense) => (
-                    <Card key={expense.id} className="p-4 shadow-card hover:shadow-hover transition-shadow">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3 flex-1">
-                          <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                            {getExpenseIcon(expense.expense_name, expense.category)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-base uppercase">{expense.category || expense.expense_name}</h3>
-                              <Badge
-                                className={
-                                  expense.status === "pago"
-                                    ? "bg-status-ready text-white"
-                                    : "bg-status-pending text-white"
-                                }
-                              >
-                                {expense.status === "pago" ? "PAGO" : "PENDENTE"}
-                              </Badge>
+                  .map((expense) => {
+                    const isPaid = expense.status === "pago";
+                    
+                    return (
+                      <Card 
+                        key={expense.id} 
+                        className={`glass-effect hover-lift p-5 border-l-4 ${
+                          isPaid ? "border-l-status-success" : "border-l-destructive"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-4 flex-1">
+                            <div className={`p-3 rounded-xl ${
+                              isPaid ? "bg-status-success/20" : "bg-destructive/20"
+                            }`}>
+                              <div className={isPaid ? "text-status-success" : "text-destructive"}>
+                                {getExpenseIcon(expense.expense_name, expense.category)}
+                              </div>
                             </div>
-                            
-                            {expense.description && (
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {expense.description}
-                              </p>
-                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="font-bold text-xl uppercase">
+                                  {expense.category || expense.expense_name}
+                                </h3>
+                                <Badge
+                                  className={`font-bold px-3 py-1 ${
+                                    isPaid
+                                      ? "bg-status-success/20 text-status-success border border-status-success/30"
+                                      : "bg-destructive/20 text-destructive border border-destructive/30"
+                                  }`}
+                                >
+                                  {isPaid ? "✓ PAGO" : "⏳ PENDENTE"}
+                                </Badge>
+                              </div>
+                              
+                              {expense.description && (
+                                <p className="text-sm text-muted-foreground mb-3 font-medium">
+                                  {expense.description}
+                                </p>
+                              )}
 
-                            <div className="flex flex-wrap gap-3 text-sm">
-                              {expense.status === "pago" ? (
-                                <>
+                              <div className="flex flex-wrap gap-3 text-sm font-semibold">
+                                {isPaid ? (
                                   <span>
                                     Pago em: {expense.paid_at ? format(new Date(expense.paid_at), "dd/MM/yyyy") : "-"}
                                   </span>
-                                </>
-                              ) : (
-                                expense.due_date && (
-                                  <span className="text-destructive">
-                                    Vence: {format(new Date(expense.due_date), "dd/MM/yyyy")}
-                                  </span>
-                                )
-                              )}
+                                ) : (
+                                  expense.due_date && (
+                                    <span className="text-destructive">
+                                      Vence: {format(new Date(expense.due_date), "dd/MM/yyyy")}
+                                    </span>
+                                  )
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex flex-col items-end gap-2">
-                          <p className="font-bold text-lg whitespace-nowrap">
-                            R$ {expense.status === "pago" ? expense.amount_paid?.toFixed(2) : "0.00"}
-                          </p>
-                          {expense.status === "pendente" && (
-                            <Button
-                              onClick={() => handlePayExpense(expense)}
-                              size="sm"
-                              className="bg-accent hover:bg-accent/90"
-                            >
-                              Paguei
-                            </Button>
-                          )}
+                          <div className="flex flex-col items-end gap-3">
+                            <p className={`font-bold text-2xl whitespace-nowrap ${
+                              isPaid ? "text-status-success" : "text-foreground"
+                            }`}>
+                              R$ {isPaid ? expense.amount_paid?.toFixed(2) : "0.00"}
+                            </p>
+                            {!isPaid && (
+                              <Button
+                                onClick={() => handlePayExpense(expense)}
+                                className="bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold"
+                              >
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                PAGUEI
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -397,10 +432,10 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
       )}
 
       {expenses.length === 0 && !loading && (
-        <Card className="p-12 text-center">
-          <DollarSign className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-xl font-semibold mb-2">Nenhuma despesa registrada</h3>
-          <p className="text-muted-foreground">
+        <Card className="p-16 text-center glass-effect hover-lift">
+          <DollarSign className="h-20 w-20 mx-auto mb-6 text-muted-foreground opacity-50" />
+          <h3 className="text-2xl font-bold mb-3">Nenhuma despesa registrada</h3>
+          <p className="text-muted-foreground text-lg">
             As despesas serão geradas automaticamente a partir do dia disponível
           </p>
         </Card>

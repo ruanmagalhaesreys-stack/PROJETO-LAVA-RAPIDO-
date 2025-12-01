@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, DollarSign, CheckCircle } from "lucide-react";
 
 interface PayExpenseModalProps {
   open: boolean;
@@ -73,14 +73,18 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md glass-effect border-2 border-border/50">
         <DialogHeader>
-          <DialogTitle>Registrar Pagamento - {expense?.expense_name}</DialogTitle>
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <DollarSign className="h-6 w-6 text-accent" />
+            Registrar Pagamento
+          </DialogTitle>
+          <p className="text-muted-foreground font-semibold">{expense?.expense_name}</p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <Label htmlFor="amountPaid">Valor Pago *</Label>
+            <Label htmlFor="amountPaid" className="font-semibold text-base">💰 Valor Pago *</Label>
             <Input
               id="amountPaid"
               type="number"
@@ -92,11 +96,12 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
               }
               required
               placeholder="0.00"
+              className="mt-2 h-12 bg-secondary/50 font-bold text-lg"
             />
           </div>
 
           <div>
-            <Label htmlFor="paidAt">Data do Pagamento *</Label>
+            <Label htmlFor="paidAt" className="font-semibold text-base">📅 Data do Pagamento *</Label>
             <Input
               id="paidAt"
               type="date"
@@ -105,12 +110,13 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
                 setFormData({ ...formData, paidAt: e.target.value })
               }
               required
+              className="mt-2 h-12 bg-secondary/50 font-semibold"
             />
           </div>
 
           {isProductExpense && (
             <div>
-              <Label htmlFor="description">Descrição do Produto</Label>
+              <Label htmlFor="description" className="font-semibold text-base">📝 Descrição do Produto</Label>
               <Textarea
                 id="description"
                 value={formData.description}
@@ -119,22 +125,26 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
                 }
                 placeholder="Ex: Detergente 20L, Cera Líquida..."
                 rows={3}
+                className="mt-2 bg-secondary/50"
               />
             </div>
           )}
 
           <Button
             type="submit"
-            className="w-full bg-accent hover:bg-accent/90"
+            className="w-full bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
             disabled={loading}
           >
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Salvando...
               </>
             ) : (
-              "Confirmar Pagamento"
+              <>
+                <CheckCircle className="mr-2 h-5 w-5" />
+                CONFIRMAR PAGAMENTO
+              </>
             )}
           </Button>
         </form>

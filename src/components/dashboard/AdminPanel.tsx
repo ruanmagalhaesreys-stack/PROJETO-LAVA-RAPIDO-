@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, DollarSign } from "lucide-react";
+import { Loader2, DollarSign, Settings, Sparkles, Save } from "lucide-react";
 
 interface AdminPanelProps {
   userId: string;
@@ -142,26 +142,35 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <DollarSign className="h-8 w-8 text-accent" />
+        <Settings className="h-8 w-8 text-accent" />
         <div>
-          <h2 className="text-2xl font-bold">Configurações do Admin</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-3xl font-bold flex items-center gap-2">
+            Configurações do Admin
+            <Sparkles className="h-6 w-6 text-accent" />
+          </h2>
+          <p className="text-muted-foreground text-lg">
             Gerencie preços e configurações de despesas
           </p>
         </div>
       </div>
 
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Preços dos Serviços</h3>
-        <div className="space-y-4">
+      <Card className="glass-effect overflow-hidden">
+        <div className="bg-gradient-card p-6 border-b border-border/50">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            💎 Preços dos Serviços
+          </h3>
+        </div>
+        <div className="p-6 space-y-4">
           {prices.map((price) => (
-            <div key={price.service_name} className="flex items-center gap-4">
+            <div key={price.service_name} className="flex items-center gap-4 p-4 bg-secondary/30 rounded-xl hover-lift">
               <div className="flex-1">
-                <Label htmlFor={price.service_name}>{price.service_name}</Label>
+                <Label htmlFor={price.service_name} className="font-bold text-lg">
+                  {price.service_name}
+                </Label>
               </div>
-              <div className="w-40">
+              <div className="w-48">
                 <Input
                   id={price.service_name}
                   type="number"
@@ -171,7 +180,7 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
                   onChange={(e) =>
                     handlePriceChange(price.service_name, e.target.value)
                   }
-                  className="text-right"
+                  className="text-right h-11 font-bold text-lg bg-background"
                   disabled={loading}
                 />
               </div>
@@ -180,31 +189,38 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
 
           <Button
             onClick={handleSave}
-            className="w-full mt-6 bg-accent hover:bg-accent/90"
+            className="w-full mt-6 bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
             disabled={loading}
           >
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Salvando...
               </>
             ) : (
-              "Salvar Novos Preços"
+              <>
+                <Save className="mr-2 h-5 w-5" />
+                SALVAR PREÇOS
+              </>
             )}
           </Button>
         </div>
       </Card>
 
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Configurações de Despesas</h3>
-        <div className="space-y-6">
+      <Card className="glass-effect overflow-hidden">
+        <div className="bg-gradient-card p-6 border-b border-border/50">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            ⚙️ Configurações de Despesas
+          </h3>
+        </div>
+        <div className="p-6 space-y-6">
           {expenseTypes.map((expenseType) => (
-            <div key={expenseType.id} className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium">{expenseType.expense_name}</h4>
+            <div key={expenseType.id} className="p-6 border-2 border-border/50 rounded-xl space-y-4 hover-lift bg-secondary/20">
+              <h4 className="font-bold text-xl">{expenseType.expense_name}</h4>
               
               {expenseType.is_fixed && (
                 <div>
-                  <Label>Valor Fixo</Label>
+                  <Label className="font-semibold">Valor Fixo</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -218,13 +234,14 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
                       )
                     }
                     disabled={loading}
+                    className="mt-2 h-11 font-bold text-lg"
                   />
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Disponível a partir do dia</Label>
+                  <Label className="font-semibold">Disponível a partir do dia</Label>
                   <Input
                     type="number"
                     min="1"
@@ -238,11 +255,12 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
                       )
                     }
                     disabled={loading}
+                    className="mt-2 h-11 font-bold"
                   />
                 </div>
 
                 <div>
-                  <Label>Dia limite para pagamento</Label>
+                  <Label className="font-semibold">Dia limite para pagamento</Label>
                   <Input
                     type="number"
                     min="1"
@@ -256,6 +274,7 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
                       )
                     }
                     disabled={loading}
+                    className="mt-2 h-11 font-bold"
                   />
                 </div>
               </div>
@@ -264,16 +283,19 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
 
           <Button
             onClick={handleSaveExpenseTypes}
-            className="w-full mt-6 bg-accent hover:bg-accent/90"
+            className="w-full mt-6 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
             disabled={loading}
           >
             {loading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Salvando...
               </>
             ) : (
-              "Salvar Configurações de Despesas"
+              <>
+                <Save className="mr-2 h-5 w-5" />
+                SALVAR CONFIGURAÇÕES
+              </>
             )}
           </Button>
         </div>
