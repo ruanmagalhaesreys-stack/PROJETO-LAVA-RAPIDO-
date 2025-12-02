@@ -15,6 +15,7 @@ interface Service {
   car_make_model: string;
   car_color: string;
   service_name: string;
+  vehicle_type: string | null;
   value: number;
   status: string;
   created_at: string;
@@ -130,6 +131,11 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
                   >
                     {service.status === "finalizado" ? "✓ PRONTO" : "⏳ EM LAVAGEM"}
                   </Badge>
+                  {service.vehicle_type && (
+                    <Badge className="font-bold px-3 py-1 bg-primary/20 text-primary border border-primary/30">
+                      {service.vehicle_type}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex items-start gap-3">

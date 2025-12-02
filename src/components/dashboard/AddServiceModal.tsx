@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -16,8 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Search, Loader2, Sparkles, UserPlus } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface AddServiceModalProps {
@@ -33,18 +35,45 @@ interface Client {
   client_phone: string;
   car_make_model: string;
   car_plate: string;
-  car_color: string;
+  car_color: string | null;
 }
 
 interface ServicePrice {
   service_name: string;
+  vehicle_type: string;
   price: number;
 }
 
-const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceModalProps) => {
+const VEHICLE_TYPES = [
+  { value: "RET", label: "Carro Curto (RET)" },
+  { value: "SEDAN", label: "Carro Baixo (SEDAN)" },
+  { value: "SUV", label: "Carro Alto (SUV)" },
+  { value: "MOTO", label: "Moto" },
+  { value: "CAMINHONETE", label: "Caminhonete" },
+  { value: "OUTRO", label: "Outro" },
+];
+
+const SERVICE_NAMES = [
+  "Lavagem Completa",
+  "Lavagem Interna",
+  "Lavagem Externa",
+  "Lavagem Completa + Cera",
+  "Lavagem Motor",
+  "Lavagem Externa + Cera",
+  "Vitrificação",
+  "Hidratação de Bancos",
+  "Outros",
+];
+
+const AddServiceModal = ({
+  open,
+  onOpenChange,
+  userId,
+  onSuccess,
+}: AddServiceModalProps) => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [foundClient, setFoundClient] = useState<Client | null>(null);
+  const [searchResults, setSearchResults] = useState<Client[]>([]);
   const [servicePrices, setServicePrices] = useState<ServicePrice[]>([]);
   
   const [formData, setFormData] = useState({
@@ -53,14 +82,14 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
     carMakeModel: "",
     carPlate: "",
     carColor: "",
+    vehicleType: "",
     serviceName: "",
     value: "",
   });
 
   useEffect(() => {
-    if (open) {
+    if (open && userId) {
       fetchServicePrices();
-      resetForm();
     }
   }, [open, userId]);
 
@@ -68,18 +97,22 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
     try {
       const { data, error } = await supabase
         .from("service_prices")
-        .select("service_name, price")
+        .select("service_name, vehicle_type, price")
         .eq("user_id", userId);
 
       if (error) throw error;
       setServicePrices(data || []);
     } catch (error) {
-      console.error("Error fetching prices:", error);
+      console.error("Error fetching service prices:", error);
+      toast.error("Erro ao carregar preços dos serviços");
     }
   };
 
   const searchClient = async () => {
-    if (!searchTerm) return;
+    if (!searchTerm.trim()) {
+      toast.error("Digite um nome ou telefone para buscar");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -88,50 +121,97 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
         .select("*")
         .eq("user_id", userId)
         .or(`client_name.ilike.%${searchTerm}%,client_phone.ilike.%${searchTerm}%`)
-        .limit(1)
-        .single();
+        .limit(10);
 
-      if (data) {
-        setFoundClient(data);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setSearchResults(data);
+        const firstClient = data[0];
         setFormData({
-          clientName: data.client_name,
-          clientPhone: data.client_phone,
-          carMakeModel: data.car_make_model,
-          carPlate: data.car_plate,
-          carColor: data.car_color || "",
-          serviceName: "",
-          value: "",
+          ...formData,
+          clientName: firstClient.client_name,
+          clientPhone: firstClient.client_phone,
+          carMakeModel: firstClient.car_make_model,
+          carPlate: firstClient.car_plate,
+          carColor: firstClient.car_color || "",
         });
         toast.success("Cliente encontrado!");
       } else {
-        toast.info("Cliente não encontrado. Preencha os dados.");
-        setFoundClient(null);
+        toast.info("Cliente não encontrado. Preencha os dados manualmente.");
+        setSearchResults([]);
       }
     } catch (error) {
       console.error("Error searching client:", error);
-      toast.info("Cliente não encontrado. Preencha os dados.");
-      setFoundClient(null);
+      toast.error("Erro ao buscar cliente");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleVehicleTypeChange = (vehicleType: string) => {
+    setFormData(prev => {
+      const newData = { ...prev, vehicleType };
+      
+      // If service is already selected, update price
+      if (prev.serviceName && prev.serviceName !== "Outros") {
+        const price = servicePrices.find(
+          p => p.service_name === prev.serviceName && p.vehicle_type === vehicleType
+        )?.price || 0;
+        newData.value = price.toFixed(2);
+      }
+      
+      return newData;
+    });
+  };
+
   const handleServiceChange = (serviceName: string) => {
-    const service = servicePrices.find((s) => s.service_name === serviceName);
-    setFormData((prev) => ({
-      ...prev,
-      serviceName,
-      value: service ? service.price.toFixed(2) : "",
-    }));
+    setFormData(prev => {
+      const newData = { ...prev, serviceName };
+      
+      // If "Outros", clear the value for manual input
+      if (serviceName === "Outros") {
+        newData.value = "";
+      } else if (prev.vehicleType) {
+        // Auto-fill price based on vehicle type and service
+        const price = servicePrices.find(
+          p => p.service_name === serviceName && p.vehicle_type === prev.vehicleType
+        )?.price || 0;
+        newData.value = price.toFixed(2);
+      }
+      
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.clientName || !formData.clientPhone || !formData.carMakeModel || 
+        !formData.carPlate || !formData.vehicleType || !formData.serviceName || !formData.value) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    const valueNum = parseFloat(formData.value);
+    if (isNaN(valueNum) || valueNum <= 0) {
+      toast.error("Valor inválido");
+      return;
+    }
+
     setLoading(true);
-
     try {
-      let clientId = foundClient?.id;
+      // Check if client exists
+      const { data: existingClient } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("client_phone", formData.clientPhone)
+        .single();
 
+      let clientId = existingClient?.id;
+
+      // If client doesn't exist, create new one
       if (!clientId) {
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
@@ -140,8 +220,8 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
             client_name: formData.clientName,
             client_phone: formData.clientPhone,
             car_make_model: formData.carMakeModel,
-            car_plate: formData.carPlate.toUpperCase(),
-            car_color: formData.carColor,
+            car_plate: formData.carPlate,
+            car_color: formData.carColor || null,
           })
           .select()
           .single();
@@ -149,16 +229,20 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
         if (clientError) throw clientError;
         clientId = newClient.id;
       } else {
+        // Update existing client data
         await supabase
           .from("clients")
           .update({
+            client_name: formData.clientName,
             car_make_model: formData.carMakeModel,
-            car_plate: formData.carPlate.toUpperCase(),
-            car_color: formData.carColor,
+            car_plate: formData.carPlate,
+            car_color: formData.carColor || null,
           })
           .eq("id", clientId);
       }
 
+      // Add service to daily_services
+      const today = format(new Date(), "yyyy-MM-dd");
       const { error: serviceError } = await supabase
         .from("daily_services")
         .insert({
@@ -166,18 +250,20 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
           client_id: clientId,
           client_name: formData.clientName,
           client_phone: formData.clientPhone,
-          car_plate: formData.carPlate.toUpperCase(),
+          car_plate: formData.carPlate,
           car_make_model: formData.carMakeModel,
-          car_color: formData.carColor,
+          car_color: formData.carColor || null,
           service_name: formData.serviceName,
-          value: parseFloat(formData.value),
+          vehicle_type: formData.vehicleType,
+          value: valueNum,
           status: "pendente",
-          date_yyyymmdd: format(new Date(), "yyyy-MM-dd"),
+          date_yyyymmdd: today,
         });
 
       if (serviceError) throw serviceError;
 
       toast.success("Serviço adicionado com sucesso!");
+      resetForm();
       onSuccess();
     } catch (error: any) {
       console.error("Error adding service:", error);
@@ -188,129 +274,157 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
   };
 
   const resetForm = () => {
-    setSearchTerm("");
-    setFoundClient(null);
     setFormData({
       clientName: "",
       clientPhone: "",
       carMakeModel: "",
       carPlate: "",
       carColor: "",
+      vehicleType: "",
       serviceName: "",
       value: "",
     });
+    setSearchTerm("");
+    setSearchResults([]);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto glass-effect border-2 border-border/50">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto glass-effect">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-accent" />
-            Adicionar Novo Serviço
+          <DialogTitle className="text-3xl font-bold flex items-center gap-2">
+            ➕ Adicionar Novo Serviço
           </DialogTitle>
+          <DialogDescription className="text-base">
+            Busque o cliente ou preencha os dados manualmente
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Search Section */}
           <div className="flex gap-2">
             <Input
-              placeholder="🔍 Buscar por nome ou telefone..."
+              placeholder="🔍 Buscar cliente por nome ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && searchClient()}
-              className="h-12 bg-secondary/50 font-medium"
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchClient())}
+              className="flex-1 h-12 text-base"
             />
-            <Button onClick={searchClient} disabled={loading} className="bg-primary hover:bg-primary/90 h-12 px-6">
+            <Button
+              type="button"
+              onClick={searchClient}
+              disabled={loading}
+              className="bg-gradient-primary hover:shadow-glow font-bold h-12 px-6"
+            >
               <Search className="h-5 w-5" />
             </Button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid gap-5 md:grid-cols-2">
+          {/* Client Info Section */}
+          <div className="p-6 bg-secondary/20 rounded-xl space-y-4 border border-border/50">
+            <h3 className="font-bold text-lg">👤 Dados do Cliente</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="clientName" className="font-semibold text-base">Nome Completo *</Label>
+                <Label htmlFor="clientName" className="font-semibold">Nome Completo *</Label>
                 <Input
                   id="clientName"
                   value={formData.clientName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, clientName: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  placeholder="Ex: João Silva"
                   required
-                  disabled={!!foundClient}
-                  className="mt-2 h-11 bg-secondary/50"
+                  className="mt-2 h-11"
                 />
               </div>
 
               <div>
-                <Label htmlFor="clientPhone" className="font-semibold text-base">Telefone (apenas números) *</Label>
+                <Label htmlFor="clientPhone" className="font-semibold">Telefone *</Label>
                 <Input
                   id="clientPhone"
                   value={formData.clientPhone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, clientPhone: e.target.value.replace(/\D/g, "") })
-                  }
+                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                  placeholder="Ex: (11) 98765-4321"
                   required
-                  disabled={!!foundClient}
-                  placeholder="5511999999999"
-                  className="mt-2 h-11 bg-secondary/50"
+                  className="mt-2 h-11"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="carMakeModel" className="font-semibold text-base">Marca e Modelo *</Label>
+                <Label htmlFor="carMakeModel" className="font-semibold">Marca e Modelo *</Label>
                 <Input
                   id="carMakeModel"
                   value={formData.carMakeModel}
-                  onChange={(e) =>
-                    setFormData({ ...formData, carMakeModel: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, carMakeModel: e.target.value })}
+                  placeholder="Ex: Toyota Corolla"
                   required
-                  className="mt-2 h-11 bg-secondary/50"
+                  className="mt-2 h-11"
                 />
               </div>
 
               <div>
-                <Label htmlFor="carPlate" className="font-semibold text-base">Placa *</Label>
+                <Label htmlFor="carPlate" className="font-semibold">Placa *</Label>
                 <Input
                   id="carPlate"
                   value={formData.carPlate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, carPlate: e.target.value.toUpperCase() })
-                  }
+                  onChange={(e) => setFormData({ ...formData, carPlate: e.target.value.toUpperCase() })}
+                  placeholder="Ex: ABC-1234"
                   required
-                  maxLength={7}
-                  className="mt-2 h-11 bg-secondary/50 font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="carColor" className="font-semibold text-base">Cor do Carro</Label>
-                <Input
-                  id="carColor"
-                  value={formData.carColor}
-                  onChange={(e) =>
-                    setFormData({ ...formData, carColor: e.target.value })
-                  }
-                  placeholder="Ex: Prata, Preto, Branco..."
-                  className="mt-2 h-11 bg-secondary/50"
+                  className="mt-2 h-11"
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="serviceName" className="font-semibold text-base">Serviço *</Label>
+              <Label htmlFor="carColor" className="font-semibold">Cor do Carro</Label>
+              <Input
+                id="carColor"
+                value={formData.carColor}
+                onChange={(e) => setFormData({ ...formData, carColor: e.target.value })}
+                placeholder="Ex: Prata"
+                className="mt-2 h-11"
+              />
+            </div>
+          </div>
+
+          {/* Vehicle Type Section */}
+          <div className="p-6 bg-secondary/20 rounded-xl space-y-4 border border-border/50">
+            <h3 className="font-bold text-lg">🚗 Tipo do Veículo *</h3>
+            
+            <RadioGroup
+              value={formData.vehicleType}
+              onValueChange={handleVehicleTypeChange}
+              className="grid grid-cols-2 gap-3"
+            >
+              {VEHICLE_TYPES.map((type) => (
+                <div key={type.value} className="flex items-center space-x-2 p-3 bg-background/50 rounded-lg border border-border/30 hover:border-primary/50 transition-all">
+                  <RadioGroupItem value={type.value} id={type.value} />
+                  <Label htmlFor={type.value} className="cursor-pointer font-medium flex-1">
+                    {type.label}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* Service Section */}
+          <div className="p-6 bg-secondary/20 rounded-xl space-y-4 border border-border/50">
+            <h3 className="font-bold text-lg">📋 Serviço e Valor</h3>
+            
+            <div>
+              <Label htmlFor="serviceName" className="font-semibold">Serviço *</Label>
               <Select
                 value={formData.serviceName}
                 onValueChange={handleServiceChange}
-                required
               >
-                <SelectTrigger className="mt-2 h-11 bg-secondary/50 font-semibold">
+                <SelectTrigger className="mt-2 h-12 text-base">
                   <SelectValue placeholder="Selecione o serviço" />
                 </SelectTrigger>
-                <SelectContent>
-                  {servicePrices.map((service) => (
-                    <SelectItem key={service.service_name} value={service.service_name}>
-                      <span className="font-semibold">{service.service_name}</span> - R$ {service.price.toFixed(2)}
+                <SelectContent className="bg-background border-border">
+                  {SERVICE_NAMES.map((service) => (
+                    <SelectItem key={service} value={service} className="text-base">
+                      {service}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -318,36 +432,44 @@ const AddServiceModal = ({ open, onOpenChange, userId, onSuccess }: AddServiceMo
             </div>
 
             <div>
-              <Label htmlFor="value" className="font-semibold text-base">Valor do Serviço *</Label>
+              <Label htmlFor="value" className="font-semibold">Valor do Serviço (R$) *</Label>
               <Input
                 id="value"
                 type="number"
                 step="0.01"
+                min="0"
                 value={formData.value}
-                readOnly
-                className="mt-2 h-11 bg-muted font-bold text-lg text-accent"
+                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                placeholder="Ex: 80.00"
+                required
+                disabled={loading}
+                className="mt-2 h-12 text-lg font-bold"
               />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Adicionando...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-5 w-5" />
-                  ADICIONAR SERVIÇO
-                </>
+              {formData.serviceName !== "Outros" && formData.vehicleType && (
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
+                  💡 Valor auto-preenchido. Você pode editá-lo se necessário.
+                </p>
               )}
-            </Button>
-          </form>
-        </div>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full h-14 bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold text-lg"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                Adicionando...
+              </>
+            ) : (
+              <>
+                ✓ ADICIONAR SERVIÇO
+              </>
+            )}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
