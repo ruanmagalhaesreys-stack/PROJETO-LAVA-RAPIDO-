@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Settings, Save } from "lucide-react";
+import { Loader2, Settings, Save, Users, Link2, Copy, Trash2, UserCheck } from "lucide-react";
 
 interface AdminPanelProps {
   userId: string;
@@ -27,13 +27,26 @@ interface ExpenseType {
   due_day: number;
 }
 
+interface Partner {
+  id: string;
+  display_name: string;
+  user_id: string;
+}
+
+interface Invite {
+  id: string;
+  token: string;
+  expires_at: string;
+  used_by: string | null;
+}
+
 const VEHICLE_TYPES = [
   { value: "MOTO", label: "Moto", icon: "🏍️" },
   { value: "RET", label: "Carro Curto (RET)", icon: "🚗" },
   { value: "SEDAN", label: "Carro Baixo (SEDAN)", icon: "🚙" },
   { value: "SUV", label: "Carro Alto (SUV)", icon: "🚙" },
   { value: "CAMINHONETE", label: "Caminhonete", icon: "🚚" },
-  { value: "OUTRO", label: "Outro", icon: "🚐" },
+  { value: "OUTRO", label: "Outro", icon: "🐶" },
 ];
 
 const SERVICE_NAMES = [
@@ -52,11 +65,121 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
   const [prices, setPrices] = useState<ServicePrice[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [selectedVehicleType, setSelectedVehicleType] = useState("SEDAN");
+  
+  // Partner management state
+  const [partner, setPartner] = useState<Partner | null>(null);
+  const [activeInvite, setActiveInvite] = useState<Invite | null>(null);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPrices();
     fetchExpenseTypes();
+    fetchBusinessAndPartner();
   }, [userId]);
+
+  const fetchBusinessAndPartner = async () => {
+    try {
+      // Get user's business
+      const { data: businessIdData } = await supabase.rpc("get_user_business_id");
+      if (!businessIdData) return;
+      
+      setBusinessId(businessIdData);
+
+      // Fetch partner (member with role 'partner')
+      const { data: members, error: membersError } = await supabase
+        .from("business_members")
+        .select("id, display_name, user_id, role")
+        .eq("business_id", businessIdData)
+        .eq("role", "partner");
+
+      if (membersError) throw membersError;
+      
+      if (members && members.length > 0) {
+        setPartner(members[0]);
+      }
+
+      // Fetch active invite (not used, not expired)
+      const { data: invites, error: invitesError } = await supabase
+        .from("business_invites")
+        .select("id, token, expires_at, used_by")
+        .eq("business_id", businessIdData)
+        .is("used_by", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (invitesError) throw invitesError;
+      
+      if (invites && invites.length > 0) {
+        setActiveInvite(invites[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching business info:", error);
+    }
+  };
+
+  const generateInviteLink = async () => {
+    if (!businessId) return;
+    
+    setGeneratingInvite(true);
+    try {
+      const token = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { data, error } = await supabase
+        .from("business_invites")
+        .insert({
+          business_id: businessId,
+          created_by: userId,
+          token,
+          expires_at: expiresAt.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setActiveInvite(data);
+      toast.success("Link de convite gerado com sucesso!");
+    } catch (error: any) {
+      console.error("Error generating invite:", error);
+      toast.error(error.message || "Erro ao gerar convite");
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
+  const copyInviteLink = () => {
+    if (!activeInvite) return;
+    const link = `${window.location.origin}/convite/${activeInvite.token}`;
+    navigator.clipboard.writeText(link);
+    toast.success("Link copiado!");
+  };
+
+  const removePartner = async () => {
+    if (!partner) return;
+    
+    if (!confirm(`Tem certeza que deseja remover ${partner.display_name} do negócio?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("business_members")
+        .delete()
+        .eq("id", partner.id);
+
+      if (error) throw error;
+
+      setPartner(null);
+      toast.success("Sócio removido com sucesso!");
+    } catch (error: any) {
+      console.error("Error removing partner:", error);
+      toast.error(error.message || "Erro ao remover sócio");
+    }
+  };
 
   const fetchPrices = async () => {
     setLoading(true);
@@ -112,7 +235,6 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
   const handleSavePrices = async () => {
     setLoading(true);
     try {
-      // Filter prices for the selected vehicle type
       const pricesToUpdate = prices.filter(
         (p) => p.vehicle_type === selectedVehicleType
       );
@@ -194,10 +316,101 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
             Configurações do Admin
           </h2>
           <p className="text-muted-foreground text-lg">
-            Gerencie preços e configurações de despesas
+            Gerencie preços, despesas e acesso ao sistema
           </p>
         </div>
       </div>
+
+      {/* Partner Management Section */}
+      <Card className="glass-effect overflow-hidden">
+        <div className="bg-gradient-card p-6 border-b border-border/50">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            <Users className="h-6 w-6" />
+            Gerenciar Acesso
+          </h3>
+          <p className="text-muted-foreground mt-2">
+            Convide um sócio para ajudar a gerenciar o lava rápido
+          </p>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+            <p className="text-sm text-blue-100">
+              ℹ️ Seu sócio terá acesso apenas às abas <strong>Entradas</strong> e <strong>Despesas</strong>. 
+              As abas de Histórico e Admin ficam disponíveis apenas para você.
+            </p>
+          </div>
+
+          {partner ? (
+            <div className="bg-status-success/10 border border-status-success/30 rounded-xl p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-status-success/20 rounded-full">
+                    <UserCheck className="h-6 w-6 text-status-success" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Sócio atual</p>
+                    <p className="text-xl font-bold">{partner.display_name}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={removePartner}
+                  className="font-semibold"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remover
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-secondary/30 rounded-xl p-5 text-center">
+                <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground font-medium">Nenhum sócio cadastrado</p>
+              </div>
+
+              {activeInvite ? (
+                <div className="space-y-3">
+                  <Label className="font-semibold">Link de convite ativo</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/convite/${activeInvite.token}`}
+                      className="bg-secondary/50 font-mono text-sm"
+                    />
+                    <Button onClick={copyInviteLink} className="bg-gradient-accent hover:shadow-accent">
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-400 font-medium">
+                    ⚠️ Expira em {new Date(activeInvite.expires_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              ) : (
+                <Button
+                  onClick={generateInviteLink}
+                  disabled={generatingInvite}
+                  className="w-full h-12 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 font-bold text-lg"
+                >
+                  {generatingInvite ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="mr-2 h-5 w-5" />
+                      Gerar Link de Convite
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card className="glass-effect overflow-hidden">
         <div className="bg-gradient-card p-6 border-b border-border/50">

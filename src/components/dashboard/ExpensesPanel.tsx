@@ -55,6 +55,10 @@ interface Expense {
   is_recurring: boolean;
   category: string | null;
   due_date: string | null;
+  created_by_member_id: string | null;
+  paid_by_member_id: string | null;
+  created_by_name?: string;
+  paid_by_name?: string;
 }
 
 const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
@@ -104,7 +108,32 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
         .order("expense_name");
 
       if (error) throw error;
-      setExpenses(data || []);
+      
+      // Fetch member names for audit trail
+      const expensesWithNames = await Promise.all(
+        (data || []).map(async (expense) => {
+          let created_by_name: string | undefined;
+          let paid_by_name: string | undefined;
+
+          if (expense.created_by_member_id) {
+            const { data: nameData } = await supabase.rpc("get_member_name", {
+              member_id: expense.created_by_member_id,
+            });
+            created_by_name = nameData || undefined;
+          }
+
+          if (expense.paid_by_member_id) {
+            const { data: nameData } = await supabase.rpc("get_member_name", {
+              member_id: expense.paid_by_member_id,
+            });
+            paid_by_name = nameData || undefined;
+          }
+
+          return { ...expense, created_by_name, paid_by_name };
+        })
+      );
+
+      setExpenses(expensesWithNames);
     } catch (error) {
       console.error("Error fetching expenses:", error);
       toast.error("Erro ao carregar despesas");
@@ -297,6 +326,13 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
                                   {expense.description}
                                 </p>
                               )}
+                              {expense.paid_by_name && (
+                                <div className="mt-2 pt-2 border-t border-border/30">
+                                  <p className="text-xs text-muted-foreground">
+                                    👤 Pago por: <span className="font-semibold text-foreground">{expense.paid_by_name}</span>
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="space-y-3">
@@ -400,6 +436,20 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
                                       Vence: {format(new Date(expense.due_date), "dd/MM/yyyy")}
                                     </span>
                                   )
+                                )}
+                                {(expense.created_by_name || expense.paid_by_name) && (
+                                  <div className="flex gap-4 mt-1">
+                                    {expense.created_by_name && (
+                                      <span className="text-xs text-muted-foreground">
+                                        👤 Criado por: <span className="font-semibold text-foreground">{expense.created_by_name}</span>
+                                      </span>
+                                    )}
+                                    {expense.paid_by_name && (
+                                      <span className="text-xs text-muted-foreground">
+                                        💰 Pago por: <span className="font-semibold text-foreground">{expense.paid_by_name}</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
