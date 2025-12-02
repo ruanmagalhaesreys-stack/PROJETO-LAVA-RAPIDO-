@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle, Clock, MessageCircle, RefreshCw, Car, Sparkles } from "lucide-react";
+import { CheckCircle, Clock, RefreshCw, Car } from "lucide-react";
 import { format } from "date-fns";
 
 interface Service {
@@ -64,12 +64,6 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
       if (error) throw error;
 
-      const phone = service.client_phone.replace(/\D/g, "");
-      const message = encodeURIComponent(
-        "Olá! O serviço no seu carro está finalizado e ele está pronto para a retirada no Lava Rápido Inglaterra. Até breve!"
-      );
-      window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
-
       toast.success("Serviço finalizado!");
       onRefresh();
     } catch (error) {
@@ -78,24 +72,6 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
     }
   };
 
-  const handleSendReminders = async () => {
-    const finishedServices = services.filter(s => s.status === "finalizado");
-    
-    if (finishedServices.length === 0) {
-      toast.info("Não há serviços finalizados para enviar lembretes");
-      return;
-    }
-
-    finishedServices.forEach(service => {
-      const phone = service.client_phone.replace(/\D/g, "");
-      const message = encodeURIComponent(
-        "Olá, estamos quase fechando! Pedimos que, caso você ainda não tenha buscado seu carro, se dirija ao Lava Rápido Inglaterra antes das 18:00. Obrigado!"
-      );
-      window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
-    });
-
-    toast.success(`Lembretes enviados para ${finishedServices.length} cliente(s)!`);
-  };
 
   const hasPendingServices = services.some(s => s.status === "pendente");
 
@@ -110,14 +86,6 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
   return (
     <div className="space-y-6">
       <div className="flex gap-3 flex-wrap">
-        <Button
-          onClick={handleSendReminders}
-          className="bg-accent/10 text-accent border-2 border-accent/30 hover:bg-accent hover:text-accent-foreground hover:shadow-accent transition-all duration-300 font-semibold"
-        >
-          <MessageCircle className="h-4 w-4 mr-2" />
-          Gerar Lembretes (17:40)
-        </Button>
-        
         <Button
           onClick={onRefresh}
           variant="outline"
