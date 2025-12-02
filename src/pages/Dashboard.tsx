@@ -15,6 +15,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'owner' | 'partner'>('owner');
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   useEffect(() => {
@@ -32,6 +33,12 @@ const Dashboard = () => {
         return;
       }
       setUserId(session.user.id);
+
+      // Get user role
+      const { data: roleData } = await supabase.rpc('get_user_role');
+      if (roleData) {
+        setUserRole(roleData as 'owner' | 'partner');
+      }
 
       // Initialize default prices if not exists
       const {
@@ -142,19 +149,23 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4 max-w-3xl mx-auto h-14 bg-card/50 backdrop-blur-sm p-1 rounded-xl">
+          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-4' : 'grid-cols-2'} max-w-3xl mx-auto h-14 bg-card/50 backdrop-blur-sm p-1 rounded-xl`}>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
               📋 Entradas
             </TabsTrigger>
             <TabsTrigger value="expenses" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
               💰 Despesas
             </TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
-              📊 Histórico
-            </TabsTrigger>
-            <TabsTrigger value="admin" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
-              ⚙️ Admin
-            </TabsTrigger>
+            {userRole === 'owner' && (
+              <>
+                <TabsTrigger value="history" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
+                  📊 Histórico
+                </TabsTrigger>
+                <TabsTrigger value="admin" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
+                  ⚙️ Admin
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
@@ -173,13 +184,17 @@ const Dashboard = () => {
             <ExpensesPanel userId={userId!} />
           </TabsContent>
 
-          <TabsContent value="history" className="animate-fade-in">
-            <HistoryPanel userId={userId!} />
-          </TabsContent>
+          {userRole === 'owner' && (
+            <>
+              <TabsContent value="history" className="animate-fade-in">
+                <HistoryPanel userId={userId!} />
+              </TabsContent>
 
-          <TabsContent value="admin" className="animate-fade-in">
-            <AdminPanel userId={userId!} />
-          </TabsContent>
+              <TabsContent value="admin" className="animate-fade-in">
+                <AdminPanel userId={userId!} />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </main>
 

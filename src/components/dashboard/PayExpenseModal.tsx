@@ -25,6 +25,7 @@ interface PayExpenseModalProps {
 
 const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [memberId, setMemberId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     amountPaid: "",
     paidAt: "",
@@ -33,6 +34,7 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
 
   useEffect(() => {
     if (open && expense) {
+      fetchMemberId();
       setFormData({
         amountPaid: "",
         paidAt: new Date().toISOString().split("T")[0],
@@ -40,6 +42,24 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
       });
     }
   }, [open, expense]);
+
+  const fetchMemberId = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("business_members")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) throw error;
+      setMemberId(data.id);
+    } catch (error) {
+      console.error("Error fetching member ID:", error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +74,7 @@ const PayExpenseModal = ({ open, onOpenChange, expense, onSuccess }: PayExpenseM
           amount_paid: parseFloat(formData.amountPaid),
           paid_at: formData.paidAt,
           description: formData.description || null,
+          paid_by_member_id: memberId,
         })
         .eq("id", expense.id);
 

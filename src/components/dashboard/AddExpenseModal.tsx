@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -31,6 +31,7 @@ interface AddExpenseModalProps {
 
 const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [memberId, setMemberId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     value: "",
     category: "",
@@ -38,6 +39,27 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
     status: "pendente",
     dueDate: "",
   });
+
+  useEffect(() => {
+    if (open && userId) {
+      fetchMemberId();
+    }
+  }, [open, userId]);
+
+  const fetchMemberId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("business_members")
+        .select("id")
+        .eq("user_id", userId)
+        .single();
+
+      if (error) throw error;
+      setMemberId(data.id);
+    } catch (error) {
+      console.error("Error fetching member ID:", error);
+    }
+  };
 
   const categories = [
     "Funcionário",
@@ -75,11 +97,13 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
         month_year: currentMonthYear,
         is_recurring: false,
         expense_type_id: null,
+        created_by_member_id: memberId,
       };
 
       if (formData.status === "pago") {
         expenseData.amount_paid = parseFloat(formData.value);
         expenseData.paid_at = format(new Date(), "yyyy-MM-dd");
+        expenseData.paid_by_member_id = memberId;
       } else {
         expenseData.due_date = formData.dueDate;
       }
