@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { LogOut, Plus, Car } from "lucide-react";
+import { LogOut, Plus, Wind } from "lucide-react";
 import { format } from "date-fns";
 import ServiceQueue from "@/components/dashboard/ServiceQueue";
 import AddServiceModal from "@/components/dashboard/AddServiceModal";
@@ -121,7 +121,7 @@ const Dashboard = () => {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-50"></div>
                 <div className="relative bg-gradient-primary p-2 rounded-lg">
-                  <Car className="h-7 w-7 text-primary-foreground" />
+                  <Wind className="h-7 w-7 text-primary-foreground" />
                 </div>
               </div>
               <div>
