@@ -19,6 +19,10 @@ interface Service {
   value: number;
   status: string;
   created_at: string;
+  created_by_member_id: string | null;
+  finished_by_member_id: string | null;
+  created_by_name?: string;
+  finished_by_name?: string;
 }
 
 interface ServiceQueueProps {
@@ -47,7 +51,36 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      setServices(data || []);
+
+      // Fetch member names for audit trail
+      const servicesWithNames = await Promise.all(
+        (data || []).map(async (service) => {
+          let created_by_name = null;
+          let finished_by_name = null;
+
+          if (service.created_by_member_id) {
+            const { data: createdBy } = await supabase.rpc('get_member_name', {
+              member_id: service.created_by_member_id
+            });
+            created_by_name = createdBy;
+          }
+
+          if (service.finished_by_member_id) {
+            const { data: finishedBy } = await supabase.rpc('get_member_name', {
+              member_id: service.finished_by_member_id
+            });
+            finished_by_name = finishedBy;
+          }
+
+          return {
+            ...service,
+            created_by_name,
+            finished_by_name,
+          };
+        })
+      );
+
+      setServices(servicesWithNames);
     } catch (error) {
       console.error("Error fetching services:", error);
       toast.error("Erro ao carregar serviços");
@@ -58,9 +91,19 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
   const handleFinishService = async (service: Service) => {
     try {
+      // Get current user's member_id
+      const { data: memberData } = await supabase
+        .from("business_members")
+        .select("id")
+        .eq("user_id", userId)
+        .single();
+
       const { error } = await supabase
         .from("daily_services")
-        .update({ status: "finalizado" })
+        .update({ 
+          status: "finalizado",
+          finished_by_member_id: memberData?.id 
+        })
         .eq("id", service.id);
 
       if (error) throw error;
@@ -169,6 +212,16 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
                     <span className="text-lg font-bold text-accent">R$ {service.value.toFixed(2)}</span>
                   </div>
                 </div>
+
+                {(service.created_by_name || service.finished_by_name) && (
+                  <div className="bg-secondary/30 px-3 py-2 rounded-lg border border-border/30">
+                    <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                      👤 {service.created_by_name && `Aberto por: ${service.created_by_name}`}
+                      {service.created_by_name && service.finished_by_name && " • "}
+                      {service.finished_by_name && `Finalizado por: ${service.finished_by_name}`}
+                    </p>
+                  </div>
+                )}
 
                 {service.status === "pendente" && (
                   <Button

@@ -75,6 +75,7 @@ const AddServiceModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Client[]>([]);
   const [servicePrices, setServicePrices] = useState<ServicePrice[]>([]);
+  const [memberId, setMemberId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     clientName: "",
@@ -90,8 +91,24 @@ const AddServiceModal = ({
   useEffect(() => {
     if (open && userId) {
       fetchServicePrices();
+      fetchMemberId();
     }
   }, [open, userId]);
+
+  const fetchMemberId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("business_members")
+        .select("id")
+        .eq("user_id", userId)
+        .single();
+
+      if (error) throw error;
+      setMemberId(data.id);
+    } catch (error) {
+      console.error("Error fetching member ID:", error);
+    }
+  };
 
   const fetchServicePrices = async () => {
     try {
@@ -258,6 +275,7 @@ const AddServiceModal = ({
           value: valueNum,
           status: "pendente",
           date_yyyymmdd: today,
+          created_by_member_id: memberId,
         });
 
       if (serviceError) throw serviceError;

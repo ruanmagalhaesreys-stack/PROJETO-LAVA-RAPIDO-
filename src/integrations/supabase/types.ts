@@ -14,8 +14,106 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_invites: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          token: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          token: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_invites_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_members: {
+        Row: {
+          business_id: string
+          created_at: string
+          display_name: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          display_name: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_members_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      businesses: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
+          business_id: string | null
           car_color: string | null
           car_make_model: string
           car_plate: string
@@ -27,6 +125,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          business_id?: string | null
           car_color?: string | null
           car_make_model: string
           car_plate: string
@@ -38,6 +137,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          business_id?: string | null
           car_color?: string | null
           car_make_model?: string
           car_plate?: string
@@ -48,10 +148,19 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_services: {
         Row: {
+          business_id: string | null
           car_color: string | null
           car_make_model: string | null
           car_plate: string
@@ -59,7 +168,9 @@ export type Database = {
           client_name: string
           client_phone: string
           created_at: string | null
+          created_by_member_id: string | null
           date_yyyymmdd: string
+          finished_by_member_id: string | null
           id: string
           service_name: string
           status: string
@@ -68,6 +179,7 @@ export type Database = {
           vehicle_type: string | null
         }
         Insert: {
+          business_id?: string | null
           car_color?: string | null
           car_make_model?: string | null
           car_plate: string
@@ -75,7 +187,9 @@ export type Database = {
           client_name: string
           client_phone: string
           created_at?: string | null
+          created_by_member_id?: string | null
           date_yyyymmdd: string
+          finished_by_member_id?: string | null
           id?: string
           service_name: string
           status?: string
@@ -84,6 +198,7 @@ export type Database = {
           vehicle_type?: string | null
         }
         Update: {
+          business_id?: string | null
           car_color?: string | null
           car_make_model?: string | null
           car_plate?: string
@@ -91,7 +206,9 @@ export type Database = {
           client_name?: string
           client_phone?: string
           created_at?: string | null
+          created_by_member_id?: string | null
           date_yyyymmdd?: string
+          finished_by_member_id?: string | null
           id?: string
           service_name?: string
           status?: string
@@ -101,16 +218,38 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "daily_services_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "daily_services_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "daily_services_created_by_member_id_fkey"
+            columns: ["created_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "business_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_services_finished_by_member_id_fkey"
+            columns: ["finished_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "business_members"
+            referencedColumns: ["id"]
+          },
         ]
       }
       expense_reminders: {
         Row: {
+          business_id: string | null
           created_at: string
           expense_id: string
           id: string
@@ -118,6 +257,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           expense_id: string
           id?: string
@@ -125,6 +265,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           expense_id?: string
           id?: string
@@ -132,6 +273,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "expense_reminders_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "expense_reminders_expense_id_fkey"
             columns: ["expense_id"]
@@ -144,6 +292,7 @@ export type Database = {
       expense_types: {
         Row: {
           available_day: number
+          business_id: string | null
           created_at: string
           default_value: number | null
           due_day: number
@@ -155,6 +304,7 @@ export type Database = {
         }
         Insert: {
           available_day: number
+          business_id?: string | null
           created_at?: string
           default_value?: number | null
           due_day: number
@@ -166,6 +316,7 @@ export type Database = {
         }
         Update: {
           available_day?: number
+          business_id?: string | null
           created_at?: string
           default_value?: number | null
           due_day?: number
@@ -175,13 +326,23 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "expense_types_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
           amount_paid: number | null
+          business_id: string | null
           category: string | null
           created_at: string
+          created_by_member_id: string | null
           description: string | null
           due_date: string | null
           expense_name: string
@@ -190,6 +351,7 @@ export type Database = {
           is_recurring: boolean | null
           month_year: string
           paid_at: string | null
+          paid_by_member_id: string | null
           requested_at: string
           status: string
           updated_at: string
@@ -197,8 +359,10 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          business_id?: string | null
           category?: string | null
           created_at?: string
+          created_by_member_id?: string | null
           description?: string | null
           due_date?: string | null
           expense_name: string
@@ -207,6 +371,7 @@ export type Database = {
           is_recurring?: boolean | null
           month_year: string
           paid_at?: string | null
+          paid_by_member_id?: string | null
           requested_at?: string
           status?: string
           updated_at?: string
@@ -214,8 +379,10 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          business_id?: string | null
           category?: string | null
           created_at?: string
+          created_by_member_id?: string | null
           description?: string | null
           due_date?: string | null
           expense_name?: string
@@ -224,6 +391,7 @@ export type Database = {
           is_recurring?: boolean | null
           month_year?: string
           paid_at?: string | null
+          paid_by_member_id?: string | null
           requested_at?: string
           status?: string
           updated_at?: string
@@ -231,16 +399,38 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "expenses_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_created_by_member_id_fkey"
+            columns: ["created_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "business_members"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "expenses_expense_type_id_fkey"
             columns: ["expense_type_id"]
             isOneToOne: false
             referencedRelation: "expense_types"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "expenses_paid_by_member_id_fkey"
+            columns: ["paid_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "business_members"
+            referencedColumns: ["id"]
+          },
         ]
       }
       service_prices: {
         Row: {
+          business_id: string | null
           created_at: string | null
           id: string
           price: number
@@ -250,6 +440,7 @@ export type Database = {
           vehicle_type: string
         }
         Insert: {
+          business_id?: string | null
           created_at?: string | null
           id?: string
           price: number
@@ -259,6 +450,7 @@ export type Database = {
           vehicle_type?: string
         }
         Update: {
+          business_id?: string | null
           created_at?: string | null
           id?: string
           price?: number
@@ -267,13 +459,31 @@ export type Database = {
           user_id?: string
           vehicle_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "service_prices_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_member_name: { Args: { member_id: string }; Returns: string }
+      get_user_business_id: { Args: never; Returns: string }
+      get_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_business_access: {
+        Args: { check_business_id: string }
+        Returns: boolean
+      }
       initialize_expense_types: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -284,7 +494,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "partner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -411,6 +621,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "partner"],
+    },
   },
 } as const
