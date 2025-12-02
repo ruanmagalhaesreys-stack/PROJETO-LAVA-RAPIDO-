@@ -144,7 +144,7 @@ const Dashboard = () => {
         <Tabs defaultValue="dashboard" className="space-y-8">
           <TabsList className="grid w-full grid-cols-4 max-w-3xl mx-auto h-14 bg-card/50 backdrop-blur-sm p-1 rounded-xl">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
-              🏠 Dashboard
+              📋 Entradas
             </TabsTrigger>
             <TabsTrigger value="expenses" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
               💰 Despesas

@@ -65,6 +65,7 @@ export type Database = {
           status: string
           user_id: string
           value: number
+          vehicle_type: string | null
         }
         Insert: {
           car_color?: string | null
@@ -80,6 +81,7 @@ export type Database = {
           status?: string
           user_id: string
           value: number
+          vehicle_type?: string | null
         }
         Update: {
           car_color?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           status?: string
           user_id?: string
           value?: number
+          vehicle_type?: string | null
         }
         Relationships: [
           {
@@ -244,6 +247,7 @@ export type Database = {
           service_name: string
           updated_at: string | null
           user_id: string
+          vehicle_type: string
         }
         Insert: {
           created_at?: string | null
@@ -252,6 +256,7 @@ export type Database = {
           service_name: string
           updated_at?: string | null
           user_id: string
+          vehicle_type?: string
         }
         Update: {
           created_at?: string | null
@@ -260,6 +265,7 @@ export type Database = {
           service_name?: string
           updated_at?: string | null
           user_id?: string
+          vehicle_type?: string
         }
         Relationships: []
       }
