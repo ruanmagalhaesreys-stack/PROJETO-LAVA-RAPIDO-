@@ -92,18 +92,21 @@ export type Database = {
       }
       businesses: {
         Row: {
+          code: string
           created_at: string
           id: string
           name: string
           owner_id: string
         }
         Insert: {
+          code: string
           created_at?: string
           id?: string
           name: string
           owner_id: string
         }
         Update: {
+          code?: string
           created_at?: string
           id?: string
           name?: string
@@ -474,6 +477,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      connect_to_business: {
+        Args: { p_code: string; p_display_name: string }
+        Returns: boolean
+      }
+      create_my_business: { Args: { p_display_name: string }; Returns: string }
+      disconnect_from_business: { Args: never; Returns: boolean }
+      find_business_by_code: {
+        Args: { p_code: string }
+        Returns: {
+          id: string
+          name: string
+          owner_name: string
+        }[]
+      }
       get_member_name: { Args: { member_id: string }; Returns: string }
       get_user_business_id: { Args: never; Returns: string }
       get_user_role: {
@@ -484,14 +501,18 @@ export type Database = {
         Args: { check_business_id: string }
         Returns: boolean
       }
-      initialize_expense_types: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
-      initialize_service_prices: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
+      initialize_expense_types:
+        | { Args: { p_user_id: string }; Returns: undefined }
+        | {
+            Args: { p_business_id?: string; p_user_id: string }
+            Returns: undefined
+          }
+      initialize_service_prices:
+        | { Args: { p_user_id: string }; Returns: undefined }
+        | {
+            Args: { p_business_id?: string; p_user_id: string }
+            Returns: undefined
+          }
     }
     Enums: {
       app_role: "owner" | "partner"
