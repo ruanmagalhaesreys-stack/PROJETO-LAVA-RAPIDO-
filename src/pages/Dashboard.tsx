@@ -11,6 +11,7 @@ import AddServiceModal from "@/components/dashboard/AddServiceModal";
 import AdminPanel from "@/components/dashboard/AdminPanel";
 import HistoryPanel from "@/components/dashboard/HistoryPanel";
 import ExpensesPanel from "@/components/dashboard/ExpensesPanel";
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -18,46 +19,33 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState<'owner' | 'partner'>('owner');
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   useEffect(() => {
     checkUser();
   }, []);
+
   const checkUser = async () => {
     try {
-      const {
-        data: {
-          session
-        }
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
         return;
       }
       setUserId(session.user.id);
 
+      // Check if user has a business
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      
+      if (!businessId) {
+        // User not associated with any business, redirect to setup
+        navigate("/setup");
+        return;
+      }
+
       // Get user role
       const { data: roleData } = await supabase.rpc('get_user_role');
       if (roleData) {
         setUserRole(roleData as 'owner' | 'partner');
-      }
-
-      // Initialize default prices if not exists
-      const {
-        error: initError
-      } = await supabase.rpc('initialize_service_prices', {
-        p_user_id: session.user.id
-      });
-      if (initError) {
-        console.error("Error initializing prices:", initError);
-      }
-
-      // Initialize expense types if not exists
-      const {
-        error: expenseInitError
-      } = await supabase.rpc('initialize_expense_types', {
-        p_user_id: session.user.id
-      });
-      if (expenseInitError) {
-        console.error("Error initializing expense types:", expenseInitError);
       }
 
       // Check for expense reminders
@@ -68,34 +56,50 @@ const Dashboard = () => {
       navigate("/auth");
     }
   };
+
   const checkExpenseReminders = async (userId: string) => {
     try {
       const today = new Date();
       const todayStr = format(today, "yyyy-MM-dd");
       const currentDay = today.getDate();
-      const {
-        data: expenseTypes,
-        error: typesError
-      } = await supabase.from("expense_types").select("*").eq("user_id", userId);
+      
+      // RLS will filter by business_id automatically
+      const { data: expenseTypes, error: typesError } = await supabase
+        .from("expense_types")
+        .select("*");
+      
       if (typesError) throw typesError;
+      
       const currentMonthYear = format(today, "yyyy-MM");
-      const {
-        data: expenses,
-        error: expensesError
-      } = await supabase.from("expenses").select("*").eq("user_id", userId).eq("status", "pendente").eq("month_year", currentMonthYear);
+      const { data: expenses, error: expensesError } = await supabase
+        .from("expenses")
+        .select("*")
+        .eq("status", "pendente")
+        .eq("month_year", currentMonthYear);
+      
       if (expensesError) throw expensesError;
+      
       for (const expense of expenses || []) {
         const expenseType = expenseTypes?.find(et => et.id === expense.expense_type_id);
         if (expenseType && currentDay === expenseType.due_day) {
-          const {
-            data: existingReminder
-          } = await supabase.from("expense_reminders").select("*").eq("user_id", userId).eq("expense_id", expense.id).eq("shown_date", todayStr).single();
+          const { data: existingReminder } = await supabase
+            .from("expense_reminders")
+            .select("*")
+            .eq("expense_id", expense.id)
+            .eq("shown_date", todayStr)
+            .maybeSingle();
+          
           if (!existingReminder) {
             toast.error(`⚠️ Lembrete de Pagamento: Hoje é o dia limite para pagar ${expense.expense_name}!`, {
               duration: 10000
             });
+            
+            // Get business_id for insert
+            const { data: businessId } = await supabase.rpc('get_user_business_id');
+            
             await supabase.from("expense_reminders").insert({
               user_id: userId,
+              business_id: businessId,
               expense_id: expense.id,
               shown_date: todayStr
             });
@@ -106,6 +110,7 @@ const Dashboard = () => {
       console.error("Error checking expense reminders:", error);
     }
   };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -115,12 +120,17 @@ const Dashboard = () => {
       toast.error("Erro ao fazer logout");
     }
   };
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>;
+      </div>
+    );
   }
-  return <div className="min-h-screen bg-background">
+
+  return (
+    <div className="min-h-screen bg-background">
       <header className="bg-gradient-header border-b border-border/50 shadow-card backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-5">
           <div className="flex items-center justify-between">
@@ -134,7 +144,6 @@ const Dashboard = () => {
               <div>
                 <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   Lava Rápido Inglaterra
-                  
                 </h1>
                 <p className="text-xs text-muted-foreground font-medium">Sistema Premium de Gerenciamento</p>
               </div>
@@ -149,7 +158,7 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-4' : 'grid-cols-2'} max-w-3xl mx-auto h-14 bg-card/50 backdrop-blur-sm p-1 rounded-xl`}>
+          <TabsList className={`grid w-full ${userRole === 'owner' ? 'grid-cols-4' : 'grid-cols-3'} max-w-3xl mx-auto h-14 bg-card/50 backdrop-blur-sm p-1 rounded-xl`}>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
               📋 Entradas
             </TabsTrigger>
@@ -157,15 +166,13 @@ const Dashboard = () => {
               💰 Despesas
             </TabsTrigger>
             {userRole === 'owner' && (
-              <>
-                <TabsTrigger value="history" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
-                  📊 Histórico
-                </TabsTrigger>
-                <TabsTrigger value="admin" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
-                  ⚙️ Admin
-                </TabsTrigger>
-              </>
+              <TabsTrigger value="history" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
+                📊 Histórico
+              </TabsTrigger>
             )}
+            <TabsTrigger value="admin" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all font-semibold rounded-lg">
+              ⚙️ {userRole === 'owner' ? 'Admin' : 'Conexão'}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
@@ -185,23 +192,28 @@ const Dashboard = () => {
           </TabsContent>
 
           {userRole === 'owner' && (
-            <>
-              <TabsContent value="history" className="animate-fade-in">
-                <HistoryPanel userId={userId!} />
-              </TabsContent>
-
-              <TabsContent value="admin" className="animate-fade-in">
-                <AdminPanel userId={userId!} />
-              </TabsContent>
-            </>
+            <TabsContent value="history" className="animate-fade-in">
+              <HistoryPanel userId={userId!} />
+            </TabsContent>
           )}
+
+          <TabsContent value="admin" className="animate-fade-in">
+            <AdminPanel userId={userId!} userRole={userRole} />
+          </TabsContent>
         </Tabs>
       </main>
 
-      <AddServiceModal open={showAddModal} onOpenChange={setShowAddModal} userId={userId!} onSuccess={() => {
-      setRefreshTrigger(prev => prev + 1);
-      setShowAddModal(false);
-    }} />
-    </div>;
+      <AddServiceModal 
+        open={showAddModal} 
+        onOpenChange={setShowAddModal} 
+        userId={userId!} 
+        onSuccess={() => {
+          setRefreshTrigger(prev => prev + 1);
+          setShowAddModal(false);
+        }} 
+      />
+    </div>
+  );
 };
+
 export default Dashboard;

@@ -83,10 +83,10 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
 
   const fetchExpenseTypes = async () => {
     try {
+      // RLS will filter by business_id automatically
       const { data, error } = await supabase
         .from("expense_types")
-        .select("*")
-        .eq("user_id", userId);
+        .select("*");
 
       if (error) throw error;
       setExpenseTypes(data || []);
@@ -99,10 +99,10 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
   const fetchExpenses = async () => {
     setLoading(true);
     try {
+      // RLS will filter by business_id automatically
       const { data, error } = await supabase
         .from("expenses")
         .select("*")
-        .eq("user_id", userId)
         .eq("month_year", selectedMonth)
         .order("is_recurring", { ascending: false })
         .order("expense_name");
@@ -149,6 +149,9 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
 
     if (selectedMonth !== currentMonthYear) return;
 
+    // Get business_id for insert
+    const { data: businessId } = await supabase.rpc('get_user_business_id');
+
     for (const type of expenseTypes) {
       if (currentDay >= type.available_day) {
         const existingExpense = expenses.find(
@@ -159,6 +162,7 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
           try {
             await supabase.from("expenses").insert({
               user_id: userId,
+              business_id: businessId,
               expense_type_id: type.id,
               expense_name: type.expense_name,
               status: "pendente",

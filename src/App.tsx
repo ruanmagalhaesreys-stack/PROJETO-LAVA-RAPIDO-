@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Invite from "./pages/Invite";
+import Setup from "./pages/Setup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,7 +19,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/auth" replace />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/convite/:token" element={<Invite />} />
+          <Route path="/setup" element={<Setup />} />
           <Route path="/dashboard" element={<Dashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Settings, Save, Users, Link2, Copy, Trash2, UserCheck } from "lucide-react";
+import { Loader2, Settings, Save, Users, Copy, Trash2, UserCheck, Key, LogOut, Building } from "lucide-react";
 
 interface AdminPanelProps {
   userId: string;
+  userRole: 'owner' | 'partner';
 }
 
 interface ServicePrice {
@@ -33,11 +35,11 @@ interface Partner {
   user_id: string;
 }
 
-interface Invite {
+interface BusinessInfo {
   id: string;
-  token: string;
-  expires_at: string;
-  used_by: string | null;
+  name: string;
+  code: string;
+  owner_name?: string;
 }
 
 const VEHICLE_TYPES = [
@@ -60,107 +62,68 @@ const SERVICE_NAMES = [
   "Hidratação de Bancos",
 ];
 
-const AdminPanel = ({ userId }: AdminPanelProps) => {
+const AdminPanel = ({ userId, userRole }: AdminPanelProps) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [prices, setPrices] = useState<ServicePrice[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [selectedVehicleType, setSelectedVehicleType] = useState("SEDAN");
   
-  // Partner management state
-  const [partner, setPartner] = useState<Partner | null>(null);
-  const [activeInvite, setActiveInvite] = useState<Invite | null>(null);
-  const [generatingInvite, setGeneratingInvite] = useState(false);
-  const [businessId, setBusinessId] = useState<string | null>(null);
+  // Business and partner state
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
-    fetchPrices();
-    fetchExpenseTypes();
-    fetchBusinessAndPartner();
-  }, [userId]);
+    fetchBusinessInfo();
+    if (userRole === 'owner') {
+      fetchPrices();
+      fetchExpenseTypes();
+    }
+  }, [userId, userRole]);
 
-  const fetchBusinessAndPartner = async () => {
+  const fetchBusinessInfo = async () => {
     try {
-      // Get user's business
-      const { data: businessIdData } = await supabase.rpc("get_user_business_id");
-      if (!businessIdData) return;
-      
-      setBusinessId(businessIdData);
+      const { data: businessId } = await supabase.rpc("get_user_business_id");
+      if (!businessId) return;
 
-      // Fetch partner (member with role 'partner')
+      // Get business details including code
+      const { data: business, error: businessError } = await supabase
+        .from("businesses")
+        .select("id, name, code")
+        .eq("id", businessId)
+        .single();
+
+      if (businessError) throw businessError;
+
+      // Get all members
       const { data: members, error: membersError } = await supabase
         .from("business_members")
         .select("id, display_name, user_id, role")
-        .eq("business_id", businessIdData)
-        .eq("role", "partner");
+        .eq("business_id", businessId);
 
       if (membersError) throw membersError;
-      
-      if (members && members.length > 0) {
-        setPartner(members[0]);
-      }
 
-      // Fetch active invite (not used, not expired)
-      const { data: invites, error: invitesError } = await supabase
-        .from("business_invites")
-        .select("id, token, expires_at, used_by")
-        .eq("business_id", businessIdData)
-        .is("used_by", null)
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1);
+      const owner = members?.find(m => m.role === 'owner');
+      const partnerList = members?.filter(m => m.role === 'partner') || [];
 
-      if (invitesError) throw invitesError;
-      
-      if (invites && invites.length > 0) {
-        setActiveInvite(invites[0]);
-      }
+      setBusinessInfo({
+        ...business,
+        owner_name: owner?.display_name,
+      });
+      setPartners(partnerList);
     } catch (error) {
       console.error("Error fetching business info:", error);
     }
   };
 
-  const generateInviteLink = async () => {
-    if (!businessId) return;
-    
-    setGeneratingInvite(true);
-    try {
-      const token = crypto.randomUUID();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      const { data, error } = await supabase
-        .from("business_invites")
-        .insert({
-          business_id: businessId,
-          created_by: userId,
-          token,
-          expires_at: expiresAt.toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setActiveInvite(data);
-      toast.success("Link de convite gerado com sucesso!");
-    } catch (error: any) {
-      console.error("Error generating invite:", error);
-      toast.error(error.message || "Erro ao gerar convite");
-    } finally {
-      setGeneratingInvite(false);
-    }
+  const copyBusinessCode = () => {
+    if (!businessInfo?.code) return;
+    navigator.clipboard.writeText(businessInfo.code);
+    toast.success("Código copiado!");
   };
 
-  const copyInviteLink = () => {
-    if (!activeInvite) return;
-    const link = `${window.location.origin}/convite/${activeInvite.token}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Link copiado!");
-  };
-
-  const removePartner = async () => {
-    if (!partner) return;
-    
+  const removePartner = async (partner: Partner) => {
     if (!confirm(`Tem certeza que deseja remover ${partner.display_name} do negócio?`)) {
       return;
     }
@@ -173,7 +136,7 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
 
       if (error) throw error;
 
-      setPartner(null);
+      setPartners(prev => prev.filter(p => p.id !== partner.id));
       toast.success("Sócio removido com sucesso!");
     } catch (error: any) {
       console.error("Error removing partner:", error);
@@ -181,13 +144,38 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
     }
   };
 
+  const handleDisconnect = async () => {
+    if (!confirm("Tem certeza que deseja desconectar deste lava rápido? Você perderá o acesso aos dados.")) {
+      return;
+    }
+
+    setDisconnecting(true);
+    try {
+      const { data, error } = await supabase.rpc("disconnect_from_business");
+
+      if (error) throw error;
+
+      if (data) {
+        toast.success("Desconectado com sucesso!");
+        navigate("/setup");
+      } else {
+        toast.error("Não foi possível desconectar");
+      }
+    } catch (error: any) {
+      console.error("Error disconnecting:", error);
+      toast.error(error.message || "Erro ao desconectar");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const fetchPrices = async () => {
     setLoading(true);
     try {
+      // RLS will filter by business_id
       const { data, error } = await supabase
         .from("service_prices")
         .select("service_name, vehicle_type, price")
-        .eq("user_id", userId)
         .order("service_name");
 
       if (error) throw error;
@@ -202,10 +190,10 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
 
   const fetchExpenseTypes = async () => {
     try {
+      // RLS will filter by business_id
       const { data, error } = await supabase
         .from("expense_types")
         .select("*")
-        .eq("user_id", userId)
         .order("expense_name");
 
       if (error) throw error;
@@ -243,7 +231,6 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
         const { error } = await supabase
           .from("service_prices")
           .update({ price: price.price })
-          .eq("user_id", userId)
           .eq("service_name", price.service_name)
           .eq("vehicle_type", price.vehicle_type);
 
@@ -297,6 +284,78 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
     });
   };
 
+  // Partner view - only show connection info
+  if (userRole === 'partner') {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center gap-3">
+          <Settings className="h-8 w-8 text-accent" />
+          <div>
+            <h2 className="text-3xl font-bold">Conexão</h2>
+            <p className="text-muted-foreground text-lg">
+              Gerencie sua conexão com o lava rápido
+            </p>
+          </div>
+        </div>
+
+        <Card className="glass-effect overflow-hidden">
+          <div className="bg-gradient-card p-6 border-b border-border/50">
+            <h3 className="text-2xl font-bold flex items-center gap-2">
+              <Building className="h-6 w-6" />
+              Você está conectado
+            </h3>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {businessInfo && (
+              <div className="bg-status-success/10 border border-status-success/30 rounded-xl p-5">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-status-success/20 rounded-full">
+                    <UserCheck className="h-6 w-6 text-status-success" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium">Lava Rápido</p>
+                    <p className="text-xl font-bold">{businessInfo.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Proprietário: {businessInfo.owner_name}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+              <p className="text-sm text-amber-200">
+                ℹ️ Como sócio, você tem acesso às abas <strong>Entradas</strong> e <strong>Despesas</strong>. 
+                Suas ações são registradas para auditoria.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              variant="destructive"
+              className="w-full h-12 font-bold"
+            >
+              {disconnecting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Desconectando...
+                </>
+              ) : (
+                <>
+                  <LogOut className="mr-2 h-5 w-5" />
+                  Desconectar deste Lava Rápido
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Owner view - full admin panel
   if (loading && prices.length === 0) {
     return (
       <div className="flex justify-center py-8">
@@ -321,97 +380,81 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
         </div>
       </div>
 
-      {/* Partner Management Section */}
+      {/* Business Code Section */}
       <Card className="glass-effect overflow-hidden">
         <div className="bg-gradient-card p-6 border-b border-border/50">
           <h3 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
-            Gerenciar Acesso
+            <Key className="h-6 w-6" />
+            Código do Lava Rápido
           </h3>
           <p className="text-muted-foreground mt-2">
-            Convide um sócio para ajudar a gerenciar o lava rápido
+            Compartilhe este código com seu sócio para ele se conectar
           </p>
         </div>
 
         <div className="p-6 space-y-6">
+          {businessInfo?.code && (
+            <div className="flex items-center gap-4">
+              <div className="flex-1 bg-secondary/50 rounded-xl p-4 border-2 border-dashed border-primary/30">
+                <p className="text-center font-mono text-3xl font-bold tracking-widest text-primary">
+                  {businessInfo.code}
+                </p>
+              </div>
+              <Button
+                onClick={copyBusinessCode}
+                className="h-16 px-6 bg-gradient-accent hover:shadow-accent"
+              >
+                <Copy className="h-6 w-6" />
+              </Button>
+            </div>
+          )}
+
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
             <p className="text-sm text-blue-100">
-              ℹ️ Seu sócio terá acesso apenas às abas <strong>Entradas</strong> e <strong>Despesas</strong>. 
-              As abas de Histórico e Admin ficam disponíveis apenas para você.
+              ℹ️ Seu sócio deve fazer login e digitar este código para se conectar ao seu lava rápido. 
+              Ele terá acesso apenas às abas <strong>Entradas</strong> e <strong>Despesas</strong>.
             </p>
           </div>
 
-          {partner ? (
-            <div className="bg-status-success/10 border border-status-success/30 rounded-xl p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-status-success/20 rounded-full">
-                    <UserCheck className="h-6 w-6 text-status-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium">Sócio atual</p>
-                    <p className="text-xl font-bold">{partner.display_name}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={removePartner}
-                  className="font-semibold"
+          {/* Connected Partners */}
+          {partners.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-lg font-bold">Sócios Conectados</Label>
+              {partners.map((partner) => (
+                <div
+                  key={partner.id}
+                  className="flex items-center justify-between bg-status-success/10 border border-status-success/30 rounded-xl p-4"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remover
-                </Button>
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-status-success/20 rounded-full">
+                      <UserCheck className="h-5 w-5 text-status-success" />
+                    </div>
+                    <span className="font-bold text-lg">{partner.display_name}</span>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => removePartner(partner)}
+                    className="font-semibold"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remover
+                  </Button>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-secondary/30 rounded-xl p-5 text-center">
-                <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground font-medium">Nenhum sócio cadastrado</p>
-              </div>
+          )}
 
-              {activeInvite ? (
-                <div className="space-y-3">
-                  <Label className="font-semibold">Link de convite ativo</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={`${window.location.origin}/convite/${activeInvite.token}`}
-                      className="bg-secondary/50 font-mono text-sm"
-                    />
-                    <Button onClick={copyInviteLink} className="bg-gradient-accent hover:shadow-accent">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-amber-400 font-medium">
-                    ⚠️ Expira em {new Date(activeInvite.expires_at).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-              ) : (
-                <Button
-                  onClick={generateInviteLink}
-                  disabled={generatingInvite}
-                  className="w-full h-12 bg-gradient-primary hover:shadow-glow transition-all duration-300 hover:scale-105 font-bold text-lg"
-                >
-                  {generatingInvite ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Gerando...
-                    </>
-                  ) : (
-                    <>
-                      <Link2 className="mr-2 h-5 w-5" />
-                      Gerar Link de Convite
-                    </>
-                  )}
-                </Button>
-              )}
+          {partners.length === 0 && (
+            <div className="bg-secondary/30 rounded-xl p-5 text-center">
+              <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="text-muted-foreground font-medium">Nenhum sócio conectado</p>
             </div>
           )}
         </div>
       </Card>
 
+      {/* Service Prices Section */}
       <Card className="glass-effect overflow-hidden">
         <div className="bg-gradient-card p-6 border-b border-border/50">
           <h3 className="text-2xl font-bold flex items-center gap-2">
@@ -495,78 +538,96 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
         </div>
       </Card>
 
+      {/* Expense Types Section */}
       <Card className="glass-effect overflow-hidden">
         <div className="bg-gradient-card p-6 border-b border-border/50">
           <h3 className="text-2xl font-bold flex items-center gap-2">
-            ⚙️ Configurações de Despesas
+            📋 Configuração de Despesas Fixas
           </h3>
+          <p className="text-muted-foreground mt-2">
+            Configure valores padrão, dias de disponibilidade e vencimento
+          </p>
         </div>
-        <div className="p-6 space-y-6">
+
+        <div className="p-6 space-y-4">
           {expenseTypes.map((expenseType) => (
             <div
               key={expenseType.id}
-              className="p-6 border-2 border-border/50 rounded-xl space-y-4 hover-lift bg-secondary/20"
+              className="p-5 bg-secondary/30 rounded-xl hover-lift"
             >
-              <h4 className="font-bold text-xl">{expenseType.expense_name}</h4>
-
-              {expenseType.is_fixed && (
-                <div>
-                  <Label className="font-semibold">Valor Fixo</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={expenseType.default_value || 0}
-                    onChange={(e) =>
-                      handleExpenseTypeChange(
-                        expenseType.id,
-                        "default_value",
-                        parseFloat(e.target.value)
-                      )
-                    }
-                    disabled={loading}
-                    className="mt-2 h-11 font-bold text-lg"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="font-semibold">Disponível a partir do dia</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={expenseType.available_day}
-                    onChange={(e) =>
-                      handleExpenseTypeChange(
-                        expenseType.id,
-                        "available_day",
-                        parseInt(e.target.value)
-                      )
-                    }
-                    disabled={loading}
-                    className="mt-2 h-11 font-bold"
-                  />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1">
+                  <h4 className="font-bold text-lg">{expenseType.expense_name}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {expenseType.is_fixed ? "Valor fixo" : "Valor variável"}
+                  </p>
                 </div>
 
-                <div>
-                  <Label className="font-semibold">Dia limite para pagamento</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={expenseType.due_day}
-                    onChange={(e) =>
-                      handleExpenseTypeChange(
-                        expenseType.id,
-                        "due_day",
-                        parseInt(e.target.value)
-                      )
-                    }
-                    disabled={loading}
-                    className="mt-2 h-11 font-bold"
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  {expenseType.is_fixed && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">
+                        VALOR (R$)
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={expenseType.default_value || ""}
+                        onChange={(e) =>
+                          handleExpenseTypeChange(
+                            expenseType.id,
+                            "default_value",
+                            parseFloat(e.target.value) || null
+                          )
+                        }
+                        className="h-10 bg-background"
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      DISPONÍVEL DIA
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={expenseType.available_day}
+                      onChange={(e) =>
+                        handleExpenseTypeChange(
+                          expenseType.id,
+                          "available_day",
+                          parseInt(e.target.value) || 1
+                        )
+                      }
+                      className="h-10 bg-background"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      VENCE DIA
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={expenseType.due_day}
+                      onChange={(e) =>
+                        handleExpenseTypeChange(
+                          expenseType.id,
+                          "due_day",
+                          parseInt(e.target.value) || 1
+                        )
+                      }
+                      className="h-10 bg-background"
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -585,7 +646,7 @@ const AdminPanel = ({ userId }: AdminPanelProps) => {
             ) : (
               <>
                 <Save className="mr-2 h-5 w-5" />
-                SALVAR CONFIGURAÇÕES
+                SALVAR CONFIGURAÇÕES DE DESPESAS
               </>
             )}
           </Button>
