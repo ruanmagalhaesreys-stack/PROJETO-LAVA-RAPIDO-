@@ -151,12 +151,20 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
 
     // Get business_id for insert
     const { data: businessId } = await supabase.rpc('get_user_business_id');
+    if (!businessId) return;
+
+    let hasNewExpenses = false;
 
     for (const type of expenseTypes) {
       if (currentDay >= type.available_day) {
-        const existingExpense = expenses.find(
-          (e) => e.expense_type_id === type.id && e.month_year === selectedMonth
-        );
+        // Check directly in database to prevent duplicates (not local state)
+        const { data: existingExpense } = await supabase
+          .from("expenses")
+          .select("id")
+          .eq("expense_type_id", type.id)
+          .eq("month_year", selectedMonth)
+          .eq("business_id", businessId)
+          .maybeSingle();
 
         if (!existingExpense) {
           try {
@@ -169,6 +177,7 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
               month_year: selectedMonth,
               is_recurring: true,
             });
+            hasNewExpenses = true;
           } catch (error) {
             console.error(`Error creating expense for ${type.expense_name}:`, error);
           }
@@ -176,7 +185,9 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
       }
     }
 
-    fetchExpenses();
+    if (hasNewExpenses) {
+      fetchExpenses();
+    }
   };
 
   const handlePayExpense = (expense: Expense) => {
