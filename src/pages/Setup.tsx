@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Building, Link2, Wind, Sparkles } from "lucide-react";
+import { Loader2, Building, Link2, Wind, Sparkles, ArrowLeft } from "lucide-react";
+import { z } from "zod";
+
+// Validation schemas
+const displayNameSchema = z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo");
+const businessCodeSchema = z.string().trim().min(1, "Digite o código").regex(/^LR-[A-Z0-9]+$/i, "Código inválido. Formato: LR-ABC123");
 
 const Setup = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mode, setMode] = useState<"choose" | "create" | "connect">("choose");
   const [displayName, setDisplayName] = useState("");
   const [businessCode, setBusinessCode] = useState("");
@@ -19,13 +26,68 @@ const Setup = () => {
     name: string;
     owner_name: string;
   } | null>(null);
+  const [errors, setErrors] = useState<{ displayName?: string; businessCode?: string }>({});
 
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        setIsLoggedIn(true);
+        
+        // Check if user already has a business
+        const { data: businessId } = await supabase.rpc('get_user_business_id');
+        
+        if (businessId) {
+          // User already has a business, go to dashboard
+          navigate("/dashboard");
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking session:", error);
+    } finally {
+      setCheckingSession(false);
+    }
+  };
+
+  const validateDisplayName = (): boolean => {
+    const result = displayNameSchema.safeParse(displayName);
+    if (!result.success) {
+      setErrors(prev => ({ ...prev, displayName: result.error.errors[0].message }));
+      return false;
+    }
+    setErrors(prev => ({ ...prev, displayName: undefined }));
+    return true;
+  };
+
+  const validateBusinessCode = (): boolean => {
+    const result = businessCodeSchema.safeParse(businessCode);
+    if (!result.success) {
+      setErrors(prev => ({ ...prev, businessCode: result.error.errors[0].message }));
+      return false;
+    }
+    setErrors(prev => ({ ...prev, businessCode: undefined }));
+    return true;
+  };
+
+  // If user is logged in, execute actions directly
   const handleCreateBusiness = async () => {
-    if (!displayName.trim()) {
-      toast.error("Digite seu nome de exibição");
+    if (!validateDisplayName()) return;
+
+    if (!isLoggedIn) {
+      // Store choice and redirect to auth
+      localStorage.setItem("setupAction", "create");
+      localStorage.setItem("setupDisplayName", displayName.trim());
+      navigate("/auth");
       return;
     }
 
+    // User is logged in, create business directly
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("create_my_business", {
@@ -50,10 +112,7 @@ const Setup = () => {
   };
 
   const handleSearchBusiness = async () => {
-    if (!businessCode.trim()) {
-      toast.error("Digite o código do lava rápido");
-      return;
-    }
+    if (!validateBusinessCode()) return;
 
     setLoading(true);
     try {
@@ -65,6 +124,7 @@ const Setup = () => {
 
       if (data && data.length > 0) {
         setFoundBusiness(data[0]);
+        setErrors(prev => ({ ...prev, businessCode: undefined }));
       } else {
         toast.error("Código não encontrado");
         setFoundBusiness(null);
@@ -78,13 +138,19 @@ const Setup = () => {
   };
 
   const handleConnect = async () => {
-    if (!displayName.trim()) {
-      toast.error("Digite seu nome de exibição");
+    if (!validateDisplayName()) return;
+    if (!foundBusiness) return;
+
+    if (!isLoggedIn) {
+      // Store choice and redirect to auth
+      localStorage.setItem("setupAction", "connect");
+      localStorage.setItem("setupDisplayName", displayName.trim());
+      localStorage.setItem("setupBusinessCode", businessCode.trim().toUpperCase());
+      navigate("/auth");
       return;
     }
 
-    if (!foundBusiness) return;
-
+    // User is logged in, connect directly
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("connect_to_business", {
@@ -108,6 +174,22 @@ const Setup = () => {
     }
   };
 
+  const resetMode = () => {
+    setMode("choose");
+    setFoundBusiness(null);
+    setBusinessCode("");
+    setDisplayName("");
+    setErrors({});
+  };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
@@ -125,7 +207,7 @@ const Setup = () => {
             <Sparkles className="h-6 w-6 text-accent" />
           </h1>
           <p className="text-muted-foreground mt-2">
-            Configure seu acesso ao sistema
+            {isLoggedIn ? "Configure seu acesso ao sistema" : "Escolha como deseja começar"}
           </p>
         </div>
 
@@ -166,6 +248,21 @@ const Setup = () => {
                 </div>
               </div>
             </Card>
+
+            {isLoggedIn && (
+              <div className="mt-6 text-center">
+                <button
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    setIsLoggedIn(false);
+                    toast.success("Logout realizado");
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Sair da conta atual
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -177,7 +274,10 @@ const Setup = () => {
               </div>
               <h2 className="text-2xl font-bold">Criar Meu Lava Rápido</h2>
               <p className="text-muted-foreground text-sm mt-2">
-                Você será o proprietário e terá acesso completo ao sistema
+                {isLoggedIn 
+                  ? "Você será o proprietário e terá acesso completo ao sistema"
+                  : "Você precisará criar uma conta ou fazer login para continuar"
+                }
               </p>
             </div>
 
@@ -187,9 +287,15 @@ const Setup = () => {
                 <Input
                   placeholder="Ex: João Silva"
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="h-12 bg-secondary/50"
+                  onChange={(e) => {
+                    setDisplayName(e.target.value);
+                    if (errors.displayName) setErrors(prev => ({ ...prev, displayName: undefined }));
+                  }}
+                  className={`h-12 bg-secondary/50 ${errors.displayName ? "border-destructive" : ""}`}
                 />
+                {errors.displayName && (
+                  <p className="text-sm text-destructive">{errors.displayName}</p>
+                )}
               </div>
 
               <Button
@@ -200,19 +306,22 @@ const Setup = () => {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Criando...
+                    {isLoggedIn ? "Criando..." : "Processando..."}
                   </>
-                ) : (
+                ) : isLoggedIn ? (
                   "CRIAR MEU LAVA RÁPIDO"
+                ) : (
+                  "CONTINUAR →"
                 )}
               </Button>
 
               <Button
                 variant="ghost"
-                onClick={() => setMode("choose")}
+                onClick={resetMode}
                 className="w-full"
               >
-                ← Voltar
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
               </Button>
             </div>
           </Card>
@@ -240,21 +349,25 @@ const Setup = () => {
                     onChange={(e) => {
                       setBusinessCode(e.target.value.toUpperCase());
                       setFoundBusiness(null);
+                      if (errors.businessCode) setErrors(prev => ({ ...prev, businessCode: undefined }));
                     }}
-                    className="h-12 bg-secondary/50 font-mono text-lg uppercase tracking-wider"
+                    className={`h-12 bg-secondary/50 font-mono text-lg uppercase tracking-wider ${errors.businessCode ? "border-destructive" : ""}`}
                   />
                   <Button
                     onClick={handleSearchBusiness}
                     disabled={loading || !businessCode.trim()}
                     className="h-12 px-6 bg-gradient-accent"
                   >
-                    {loading ? (
+                    {loading && !foundBusiness ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                       "Buscar"
                     )}
                   </Button>
                 </div>
+                {errors.businessCode && (
+                  <p className="text-sm text-destructive">{errors.businessCode}</p>
+                )}
               </div>
 
               {foundBusiness && (
@@ -277,9 +390,15 @@ const Setup = () => {
                     <Input
                       placeholder="Ex: Pedro Santos"
                       value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      className="h-12 bg-secondary/50"
+                      onChange={(e) => {
+                        setDisplayName(e.target.value);
+                        if (errors.displayName) setErrors(prev => ({ ...prev, displayName: undefined }));
+                      }}
+                      className={`h-12 bg-secondary/50 ${errors.displayName ? "border-destructive" : ""}`}
                     />
+                    {errors.displayName && (
+                      <p className="text-sm text-destructive">{errors.displayName}</p>
+                    )}
                   </div>
 
                   <Button
@@ -290,10 +409,12 @@ const Setup = () => {
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Conectando...
+                        {isLoggedIn ? "Conectando..." : "Processando..."}
                       </>
-                    ) : (
+                    ) : isLoggedIn ? (
                       "CONECTAR COMO SÓCIO"
+                    ) : (
+                      "CONTINUAR →"
                     )}
                   </Button>
                 </div>
@@ -301,14 +422,11 @@ const Setup = () => {
 
               <Button
                 variant="ghost"
-                onClick={() => {
-                  setMode("choose");
-                  setFoundBusiness(null);
-                  setBusinessCode("");
-                }}
+                onClick={resetMode}
                 className="w-full"
               >
-                ← Voltar
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
               </Button>
             </div>
           </Card>
