@@ -21,6 +21,25 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Search, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { z } from "zod";
+
+// Validation schema for service form
+const serviceFormSchema = z.object({
+  clientName: z.string().trim().min(1, "Nome obrigatório").max(100, "Nome muito longo"),
+  clientPhone: z.string().trim().min(1, "Telefone obrigatório").max(20, "Telefone muito longo"),
+  carMakeModel: z.string().trim().min(1, "Marca/modelo obrigatório").max(100, "Texto muito longo"),
+  carPlate: z.string().trim().min(1, "Placa obrigatória").max(10, "Placa inválida"),
+  carColor: z.string().trim().max(50, "Cor muito longa").optional(),
+  vehicleType: z.string().min(1, "Selecione o tipo de veículo"),
+  serviceName: z.string().min(1, "Selecione o serviço"),
+  value: z.string().refine((val) => {
+    const num = parseFloat(val);
+    return !isNaN(num) && num > 0 && num <= 100000;
+  }, "Valor deve ser entre R$0,01 e R$100.000"),
+});
+
+// Validation schema for search term (to prevent injection)
+const searchTermSchema = z.string().trim().max(100, "Termo de busca muito longo");
 
 interface AddServiceModalProps {
   open: boolean;
@@ -126,10 +145,14 @@ const AddServiceModal = ({
   };
 
   const searchClient = async () => {
-    if (!searchTerm.trim()) {
-      toast.error("Digite um nome ou telefone para buscar");
+    // Validate and sanitize search term
+    const searchValidation = searchTermSchema.safeParse(searchTerm);
+    if (!searchValidation.success || !searchTerm.trim()) {
+      toast.error("Digite um nome ou telefone válido para buscar");
       return;
     }
+
+    const sanitizedTerm = searchValidation.data;
 
     setLoading(true);
     try {
@@ -137,7 +160,7 @@ const AddServiceModal = ({
         .from("clients")
         .select("*")
         .eq("user_id", userId)
-        .or(`client_name.ilike.%${searchTerm}%,client_phone.ilike.%${searchTerm}%`)
+        .or(`client_name.ilike.%${sanitizedTerm}%,client_phone.ilike.%${sanitizedTerm}%`)
         .limit(10);
 
       if (error) throw error;
@@ -204,17 +227,16 @@ const AddServiceModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.clientName || !formData.clientPhone || !formData.carMakeModel || 
-        !formData.carPlate || !formData.vehicleType || !formData.serviceName || !formData.value) {
-      toast.error("Preencha todos os campos obrigatórios");
+    // Validate form data with Zod schema
+    const validation = serviceFormSchema.safeParse(formData);
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
-    const valueNum = parseFloat(formData.value);
-    if (isNaN(valueNum) || valueNum <= 0) {
-      toast.error("Valor inválido");
-      return;
-    }
+    const validatedData = validation.data;
+    const valueNum = parseFloat(validatedData.value);
 
     setLoading(true);
     try {
