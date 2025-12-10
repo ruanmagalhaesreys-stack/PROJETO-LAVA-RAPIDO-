@@ -21,6 +21,24 @@ import {
 import { toast } from "sonner";
 import { Loader2, Plus, Sparkles } from "lucide-react";
 import { format } from "date-fns";
+import { z } from "zod";
+
+// Validation schema for expense form
+const expenseFormSchema = z.object({
+  value: z.string().refine((val) => {
+    const num = parseFloat(val);
+    return !isNaN(num) && num > 0 && num <= 1000000;
+  }, "Valor deve ser entre R$0,01 e R$1.000.000"),
+  category: z.string().min(1, "Selecione uma categoria"),
+  description: z.string().trim().max(500, "Descrição muito longa").optional(),
+  status: z.enum(["pago", "pendente"]),
+  dueDate: z.string().optional(),
+}).refine((data) => {
+  if (data.status === "pendente" && !data.dueDate) {
+    return false;
+  }
+  return true;
+}, { message: "Data limite obrigatória para despesas pendentes", path: ["dueDate"] });
 
 interface AddExpenseModalProps {
   open: boolean;
@@ -74,15 +92,15 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.value || !formData.category) {
-      toast.error("Preencha o valor e a categoria");
+    // Validate form data with Zod schema
+    const validation = expenseFormSchema.safeParse(formData);
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
-    if (formData.status === "pendente" && !formData.dueDate) {
-      toast.error("Preencha a data limite para despesas pendentes");
-      return;
-    }
+    const validatedData = validation.data;
 
     setLoading(true);
     try {
@@ -90,22 +108,22 @@ const AddExpenseModal = ({ open, onOpenChange, userId, onSuccess }: AddExpenseMo
       
       const expenseData: any = {
         user_id: userId,
-        expense_name: formData.category,
-        category: formData.category,
-        description: formData.description || null,
-        status: formData.status,
+        expense_name: validatedData.category,
+        category: validatedData.category,
+        description: validatedData.description || null,
+        status: validatedData.status,
         month_year: currentMonthYear,
         is_recurring: false,
         expense_type_id: null,
         created_by_member_id: memberId,
       };
 
-      if (formData.status === "pago") {
-        expenseData.amount_paid = parseFloat(formData.value);
+      if (validatedData.status === "pago") {
+        expenseData.amount_paid = parseFloat(validatedData.value);
         expenseData.paid_at = format(new Date(), "yyyy-MM-dd");
         expenseData.paid_by_member_id = memberId;
       } else {
-        expenseData.due_date = formData.dueDate;
+        expenseData.due_date = validatedData.dueDate;
       }
 
       const { error } = await supabase.from("expenses").insert(expenseData);
