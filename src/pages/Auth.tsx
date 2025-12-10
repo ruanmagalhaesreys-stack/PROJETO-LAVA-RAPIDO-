@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Car, Sparkles } from "lucide-react";
+import { z } from "zod";
+
+// Schema validation for auth forms
+const authSchema = z.object({
+  email: z.string().trim().email({ message: "Email inválido" }).max(255, { message: "Email muito longo" }),
+  password: z.string().min(6, { message: "Senha deve ter pelo menos 6 caracteres" }).max(72, { message: "Senha muito longa" }),
+});
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -13,23 +20,56 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session) {
+          navigate("/dashboard");
+        }
+      }
+    );
+
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate("/dashboard");
       }
     });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const validateForm = (): boolean => {
+    const result = authSchema.safeParse({ email, password });
+    if (!result.success) {
+      const fieldErrors: { email?: string; password?: string } = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0] === "email") fieldErrors.email = err.message;
+        if (err.path[0] === "password") fieldErrors.password = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
         if (error) throw error;
@@ -37,7 +77,7 @@ const Auth = () => {
         navigate("/dashboard");
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/dashboard`,
@@ -91,11 +131,17 @@ const Auth = () => {
                 type="email"
                 placeholder="seu@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
                 required
                 disabled={loading}
-                className="h-12 bg-secondary/50 border-border/50 focus:border-primary transition-all"
+                className={`h-12 bg-secondary/50 border-border/50 focus:border-primary transition-all ${errors.email ? "border-destructive" : ""}`}
               />
+              {errors.email && (
+                <p className="text-sm text-destructive mt-1">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -107,12 +153,18 @@ const Auth = () => {
                 type="password"
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                }}
                 required
                 disabled={loading}
                 minLength={6}
-                className="h-12 bg-secondary/50 border-border/50 focus:border-primary transition-all"
+                className={`h-12 bg-secondary/50 border-border/50 focus:border-primary transition-all ${errors.password ? "border-destructive" : ""}`}
               />
+              {errors.password && (
+                <p className="text-sm text-destructive mt-1">{errors.password}</p>
+              )}
             </div>
 
             <Button
