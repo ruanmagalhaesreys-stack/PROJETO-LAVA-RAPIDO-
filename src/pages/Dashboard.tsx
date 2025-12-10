@@ -21,17 +21,35 @@ const Dashboard = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!session) {
+          navigate("/setup");
+        } else if (event === 'SIGNED_IN') {
+          // Defer to avoid deadlock
+          setTimeout(() => {
+            checkUserBusiness(session.user.id);
+          }, 0);
+        }
       }
-      setUserId(session.user.id);
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate("/setup");
+      } else {
+        checkUserBusiness(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const checkUserBusiness = async (uid: string) => {
+    try {
+      setUserId(uid);
 
       // Check if user has a business
       const { data: businessId } = await supabase.rpc('get_user_business_id');
@@ -49,11 +67,11 @@ const Dashboard = () => {
       }
 
       // Check for expense reminders
-      await checkExpenseReminders(session.user.id);
+      await checkExpenseReminders(uid);
       setLoading(false);
     } catch (error) {
       console.error("Error checking user:", error);
-      navigate("/auth");
+      navigate("/setup");
     }
   };
 
@@ -115,7 +133,7 @@ const Dashboard = () => {
     try {
       await supabase.auth.signOut();
       toast.success("Logout realizado com sucesso!");
-      navigate("/auth");
+      navigate("/setup");
     } catch (error) {
       toast.error("Erro ao fazer logout");
     }
