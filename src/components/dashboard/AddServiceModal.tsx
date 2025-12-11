@@ -240,6 +240,14 @@ const AddServiceModal = ({
 
     setLoading(true);
     try {
+      // Get business_id for RLS compliance
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      if (!businessId) {
+        toast.error("Erro: não foi possível identificar o negócio");
+        setLoading(false);
+        return;
+      }
+
       // Check if client exists
       const { data: existingClient } = await supabase
         .from("clients")
@@ -256,6 +264,7 @@ const AddServiceModal = ({
           .from("clients")
           .insert({
             user_id: userId,
+            business_id: businessId,
             client_name: formData.clientName,
             client_phone: formData.clientPhone,
             car_make_model: formData.carMakeModel,
@@ -286,6 +295,7 @@ const AddServiceModal = ({
         .from("daily_services")
         .insert({
           user_id: userId,
+          business_id: businessId,
           client_id: clientId,
           client_name: formData.clientName,
           client_phone: formData.clientPhone,
