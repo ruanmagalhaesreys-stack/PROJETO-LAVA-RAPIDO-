@@ -43,10 +43,17 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
     try {
       const today = format(new Date(), "yyyy-MM-dd");
       
+      // Get business_id for proper data sync across all members
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      if (!businessId) {
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from("daily_services")
         .select("*")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .eq("date_yyyymmdd", today)
         .order("created_at", { ascending: true });
 
