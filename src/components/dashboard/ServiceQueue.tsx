@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CheckCircle, Clock, RefreshCw, Car } from "lucide-react";
-import { format } from "date-fns";
+import { getTodayBrazil } from "@/lib/dateUtils";
 
 interface Service {
   id: string;
@@ -41,7 +41,7 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
   const fetchServices = async () => {
     try {
-      const today = format(new Date(), "yyyy-MM-dd");
+      const today = getTodayBrazil();
       
       // Get business_id for proper data sync across all members
       const { data: businessId } = await supabase.rpc('get_user_business_id');

@@ -20,7 +20,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Search, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { getTodayBrazil } from "@/lib/dateUtils";
 import { z } from "zod";
 
 // Validation schema for service form
@@ -290,7 +290,7 @@ const AddServiceModal = ({
       }
 
       // Add service to daily_services
-      const today = format(new Date(), "yyyy-MM-dd");
+      const today = getTodayBrazil();
       const { error: serviceError } = await supabase
         .from("daily_services")
         .insert({
