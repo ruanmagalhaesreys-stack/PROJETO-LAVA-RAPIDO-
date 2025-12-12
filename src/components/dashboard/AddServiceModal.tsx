@@ -131,10 +131,14 @@ const AddServiceModal = ({
 
   const fetchServicePrices = async () => {
     try {
+      // Use business_id for proper sync across all members
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      if (!businessId) return;
+
       const { data, error } = await supabase
         .from("service_prices")
         .select("service_name, vehicle_type, price")
-        .eq("user_id", userId);
+        .eq("business_id", businessId);
 
       if (error) throw error;
       setServicePrices(data || []);
@@ -156,10 +160,18 @@ const AddServiceModal = ({
 
     setLoading(true);
     try {
+      // Use business_id for proper sync across all members
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      if (!businessId) {
+        toast.error("Erro ao identificar o negócio");
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("clients")
         .select("*")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .or(`client_name.ilike.%${sanitizedTerm}%,client_phone.ilike.%${sanitizedTerm}%`)
         .limit(10);
 
@@ -248,11 +260,11 @@ const AddServiceModal = ({
         return;
       }
 
-      // Check if client exists
+      // Check if client exists (using business_id for sync)
       const { data: existingClient } = await supabase
         .from("clients")
         .select("id")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .eq("client_phone", formData.clientPhone)
         .single();
 
