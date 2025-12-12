@@ -78,11 +78,18 @@ const HistoryPanel = ({ userId }: HistoryPanelProps) => {
       const monthStart = format(startOfMonth(now), "yyyy-MM-dd");
       const monthEnd = format(endOfMonth(now), "yyyy-MM-dd");
 
+      // Get business_id for proper data sync across all members
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      if (!businessId) {
+        setCurrentMonthLoading(false);
+        return;
+      }
+
       // Fetch current month services
       const { data: servicesData, error: servicesError } = await supabase
         .from("daily_services")
         .select("*")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .gte("date_yyyymmdd", monthStart)
         .lte("date_yyyymmdd", monthEnd);
 
@@ -92,7 +99,7 @@ const HistoryPanel = ({ userId }: HistoryPanelProps) => {
       const { data: expensesData, error: expensesError } = await supabase
         .from("expenses")
         .select("*")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .eq("status", "pago")
         .gte("paid_at", monthStart)
         .lte("paid_at", monthEnd);
@@ -122,10 +129,17 @@ const HistoryPanel = ({ userId }: HistoryPanelProps) => {
 
     setLoading(true);
     try {
+      // Get business_id for proper data sync across all members
+      const { data: businessId } = await supabase.rpc('get_user_business_id');
+      if (!businessId) {
+        setLoading(false);
+        return;
+      }
+
       const { data: servicesData, error: servicesError } = await supabase
         .from("daily_services")
         .select("*")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .gte("date_yyyymmdd", startDate)
         .lte("date_yyyymmdd", endDate)
         .order("date_yyyymmdd", { ascending: false })
@@ -136,7 +150,7 @@ const HistoryPanel = ({ userId }: HistoryPanelProps) => {
       const { data: expensesData, error: expensesError } = await supabase
         .from("expenses")
         .select("*")
-        .eq("user_id", userId)
+        .eq("business_id", businessId)
         .eq("status", "pago")
         .gte("paid_at", startDate)
         .lte("paid_at", endDate)
