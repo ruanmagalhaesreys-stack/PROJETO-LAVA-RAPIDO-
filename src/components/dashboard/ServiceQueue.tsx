@@ -34,27 +34,93 @@ interface ServiceQueueProps {
 const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchServices();
+    initializeAndFetch();
   }, [userId, refreshTrigger]);
 
-  const fetchServices = async () => {
+  // Set up realtime subscription for services
+  useEffect(() => {
+    if (!businessId || !activeDate) return;
+
+    const channel = supabase
+      .channel('services-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_services',
+          filter: `business_id=eq.${businessId}`
+        },
+        () => {
+          // Refetch when any change happens
+          fetchServices(businessId, activeDate);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [businessId, activeDate]);
+
+  const initializeAndFetch = async () => {
     try {
-      const today = getTodayBrazil();
-      
-      // Get business_id for proper data sync across all members
-      const { data: businessId } = await supabase.rpc('get_user_business_id');
-      if (!businessId) {
+      // Get business_id
+      const { data: bizId } = await supabase.rpc('get_user_business_id');
+      if (!bizId) {
         setLoading(false);
         return;
       }
+      setBusinessId(bizId);
+
+      // Get or create the active day for this business
+      const today = getTodayBrazil();
       
+      const { data: dayState, error: dayError } = await supabase
+        .from("business_day_state")
+        .select("active_date_yyyymmdd")
+        .eq("business_id", bizId)
+        .maybeSingle();
+
+      if (dayError) throw dayError;
+
+      let currentActiveDate: string;
+      
+      if (!dayState) {
+        // First time - create the day state with today's date
+        const { error: insertError } = await supabase
+          .from("business_day_state")
+          .insert({
+            business_id: bizId,
+            active_date_yyyymmdd: today
+          });
+        
+        if (insertError) throw insertError;
+        currentActiveDate = today;
+      } else {
+        currentActiveDate = dayState.active_date_yyyymmdd;
+      }
+
+      setActiveDate(currentActiveDate);
+      await fetchServices(bizId, currentActiveDate);
+    } catch (error) {
+      console.error("Error initializing:", error);
+      toast.error("Erro ao carregar serviços");
+      setLoading(false);
+    }
+  };
+
+  const fetchServices = async (bizId: string, date: string) => {
+    try {
       const { data, error } = await supabase
         .from("daily_services")
         .select("*")
-        .eq("business_id", businessId)
-        .eq("date_yyyymmdd", today)
+        .eq("business_id", bizId)
+        .eq("date_yyyymmdd", date)
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -123,6 +189,28 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
     }
   };
 
+  const handleNewDay = async () => {
+    if (!businessId) return;
+    
+    try {
+      const today = getTodayBrazil();
+      
+      // Update the active date to today
+      const { error } = await supabase
+        .from("business_day_state")
+        .update({ active_date_yyyymmdd: today })
+        .eq("business_id", businessId);
+
+      if (error) throw error;
+
+      setActiveDate(today);
+      toast.success("Novo dia iniciado!");
+      onRefresh();
+    } catch (error) {
+      console.error("Error starting new day:", error);
+      toast.error("Erro ao iniciar novo dia");
+    }
+  };
 
   const hasPendingServices = services.some(s => s.status === "pendente");
 
@@ -136,9 +224,9 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
         <Button
-          onClick={onRefresh}
+          onClick={handleNewDay}
           variant="outline"
           disabled={hasPendingServices}
           className={`border-2 transition-all duration-300 font-semibold ${
@@ -155,6 +243,12 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
           <p className="text-sm text-muted-foreground flex items-center font-medium">
             Finalize todos os serviços pendentes para iniciar um novo dia
           </p>
+        )}
+
+        {activeDate && (
+          <Badge variant="outline" className="ml-auto font-mono">
+            📅 {activeDate}
+          </Badge>
         )}
       </div>
 

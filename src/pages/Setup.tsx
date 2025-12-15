@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Building, Link2, Wind, Sparkles, ArrowLeft } from "lucide-react";
+import { Loader2, Building, Link2, Wind, Sparkles, ArrowLeft, LogIn } from "lucide-react";
 import { z } from "zod";
 
 // Validation schemas
@@ -18,7 +18,7 @@ const Setup = () => {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [mode, setMode] = useState<"choose" | "create" | "connect">("choose");
+  const [mode, setMode] = useState<"choose" | "create" | "connect" | "login">("choose");
   const [displayName, setDisplayName] = useState("");
   const [businessCode, setBusinessCode] = useState("");
   const [foundBusiness, setFoundBusiness] = useState<{
@@ -27,6 +27,12 @@ const Setup = () => {
     owner_name: string;
   } | null>(null);
   const [errors, setErrors] = useState<{ displayName?: string; businessCode?: string }>({});
+
+  // Login form state
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loginErrors, setLoginErrors] = useState<{ email?: string; password?: string }>({});
 
   useEffect(() => {
     checkSession();
@@ -73,6 +79,72 @@ const Setup = () => {
     }
     setErrors(prev => ({ ...prev, businessCode: undefined }));
     return true;
+  };
+
+  // Direct login handler
+  const handleDirectLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate
+    const emailSchema = z.string().trim().email("Email inválido");
+    const passwordSchema = z.string().min(6, "Senha deve ter pelo menos 6 caracteres");
+    
+    const emailResult = emailSchema.safeParse(email);
+    const passwordResult = passwordSchema.safeParse(password);
+    
+    if (!emailResult.success) {
+      setLoginErrors(prev => ({ ...prev, email: emailResult.error.errors[0].message }));
+      return;
+    }
+    if (!passwordResult.success) {
+      setLoginErrors(prev => ({ ...prev, password: passwordResult.error.errors[0].message }));
+      return;
+    }
+    setLoginErrors({});
+
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
+        if (error) throw error;
+        toast.success("Conta criada! Agora escolha como deseja usar o sistema.");
+        setIsLoggedIn(true);
+        setMode("choose");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        
+        // Check if user has business
+        const { data: businessId } = await supabase.rpc('get_user_business_id');
+        if (businessId) {
+          toast.success("Login realizado com sucesso!");
+          navigate("/dashboard");
+        } else {
+          toast.success("Login realizado! Escolha como deseja usar o sistema.");
+          setIsLoggedIn(true);
+          setMode("choose");
+        }
+      }
+    } catch (error: any) {
+      if (error.message?.includes("User already registered")) {
+        toast.error("Este email já está cadastrado. Tente fazer login.");
+      } else if (error.message?.includes("Invalid login credentials")) {
+        toast.error("Email ou senha incorretos.");
+      } else {
+        toast.error(error.message || "Erro ao processar");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // If user is logged in, execute actions directly
@@ -180,6 +252,10 @@ const Setup = () => {
     setBusinessCode("");
     setDisplayName("");
     setErrors({});
+    setEmail("");
+    setPassword("");
+    setLoginErrors({});
+    setIsSignUp(false);
   };
 
   if (checkingSession) {
@@ -249,6 +325,29 @@ const Setup = () => {
               </div>
             </Card>
 
+            {!isLoggedIn && (
+              <>
+                <div className="text-center text-muted-foreground font-medium">OU</div>
+
+                <Card
+                  className="glass-effect p-6 cursor-pointer hover-lift border-2 border-transparent hover:border-status-success/50 transition-all"
+                  onClick={() => setMode("login")}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 bg-status-success rounded-xl">
+                      <LogIn className="h-8 w-8 text-primary-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold">Já Tenho Conta</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Entrar na minha conta existente
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
+
             {isLoggedIn && (
               <div className="mt-6 text-center">
                 <button
@@ -264,6 +363,95 @@ const Setup = () => {
               </div>
             )}
           </div>
+        )}
+
+        {mode === "login" && (
+          <Card className="glass-effect p-6 space-y-6">
+            <div className="text-center">
+              <div className="p-4 bg-status-success rounded-xl inline-block mb-4">
+                <LogIn className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <h2 className="text-2xl font-bold">{isSignUp ? "Criar Conta" : "Entrar"}</h2>
+              <p className="text-muted-foreground text-sm mt-2">
+                {isSignUp ? "Crie sua conta para começar" : "Entre na sua conta existente"}
+              </p>
+            </div>
+
+            <form onSubmit={handleDirectLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="font-semibold">📧 Email</Label>
+                <Input
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (loginErrors.email) setLoginErrors(prev => ({ ...prev, email: undefined }));
+                  }}
+                  className={`h-12 bg-secondary/50 ${loginErrors.email ? "border-destructive" : ""}`}
+                  disabled={loading}
+                />
+                {loginErrors.email && (
+                  <p className="text-sm text-destructive">{loginErrors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-semibold">🔒 Senha</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (loginErrors.password) setLoginErrors(prev => ({ ...prev, password: undefined }));
+                  }}
+                  className={`h-12 bg-secondary/50 ${loginErrors.password ? "border-destructive" : ""}`}
+                  disabled={loading}
+                />
+                {loginErrors.password && (
+                  <p className="text-sm text-destructive">{loginErrors.password}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || !email.trim() || !password}
+                className="w-full h-12 bg-status-success hover:bg-status-success/90 font-bold text-lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Processando...
+                  </>
+                ) : isSignUp ? (
+                  "CRIAR CONTA"
+                ) : (
+                  "ENTRAR"
+                )}
+              </Button>
+            </form>
+
+            <div className="text-center">
+              <button
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                disabled={loading}
+              >
+                {isSignUp ? "Já tem uma conta? Entrar" : "Não tem uma conta? Criar conta"}
+              </button>
+            </div>
+
+            <Button
+              variant="ghost"
+              onClick={resetMode}
+              className="w-full"
+              disabled={loading}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          </Card>
         )}
 
         {mode === "create" && (
