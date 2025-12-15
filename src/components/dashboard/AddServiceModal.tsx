@@ -20,7 +20,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Search, Loader2 } from "lucide-react";
-import { getTodayBrazil } from "@/lib/dateUtils";
 import { z } from "zod";
 
 // Validation schema for service form
@@ -95,6 +94,7 @@ const AddServiceModal = ({
   const [searchResults, setSearchResults] = useState<Client[]>([]);
   const [servicePrices, setServicePrices] = useState<ServicePrice[]>([]);
   const [memberId, setMemberId] = useState<string | null>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     clientName: "",
@@ -109,42 +109,41 @@ const AddServiceModal = ({
 
   useEffect(() => {
     if (open && userId) {
-      fetchServicePrices();
-      fetchMemberId();
+      initializeModal();
     }
   }, [open, userId]);
 
-  const fetchMemberId = async () => {
+  const initializeModal = async () => {
     try {
-      const { data, error } = await supabase
+      // Get business_id first
+      const { data: bizId } = await supabase.rpc('get_user_business_id');
+      if (!bizId) {
+        toast.error("Erro ao identificar o negócio");
+        return;
+      }
+      setBusinessId(bizId);
+
+      // Get member_id
+      const { data: memberData, error: memberError } = await supabase
         .from("business_members")
         .select("id")
         .eq("user_id", userId)
         .single();
 
-      if (error) throw error;
-      setMemberId(data.id);
-    } catch (error) {
-      console.error("Error fetching member ID:", error);
-    }
-  };
+      if (memberError) throw memberError;
+      setMemberId(memberData.id);
 
-  const fetchServicePrices = async () => {
-    try {
-      // Use business_id for proper sync across all members
-      const { data: businessId } = await supabase.rpc('get_user_business_id');
-      if (!businessId) return;
-
-      const { data, error } = await supabase
+      // Fetch service prices using business_id
+      const { data: pricesData, error: pricesError } = await supabase
         .from("service_prices")
         .select("service_name, vehicle_type, price")
-        .eq("business_id", businessId);
+        .eq("business_id", bizId);
 
-      if (error) throw error;
-      setServicePrices(data || []);
+      if (pricesError) throw pricesError;
+      setServicePrices(pricesData || []);
     } catch (error) {
-      console.error("Error fetching service prices:", error);
-      toast.error("Erro ao carregar preços dos serviços");
+      console.error("Error initializing modal:", error);
+      toast.error("Erro ao carregar dados");
     }
   };
 
@@ -156,18 +155,15 @@ const AddServiceModal = ({
       return;
     }
 
+    if (!businessId) {
+      toast.error("Erro ao identificar o negócio");
+      return;
+    }
+
     const sanitizedTerm = searchValidation.data;
 
     setLoading(true);
     try {
-      // Use business_id for proper sync across all members
-      const { data: businessId } = await supabase.rpc('get_user_business_id');
-      if (!businessId) {
-        toast.error("Erro ao identificar o negócio");
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from("clients")
         .select("*")
@@ -247,18 +243,26 @@ const AddServiceModal = ({
       return;
     }
 
+    if (!businessId) {
+      toast.error("Erro: não foi possível identificar o negócio");
+      return;
+    }
+
     const validatedData = validation.data;
     const valueNum = parseFloat(validatedData.value);
 
     setLoading(true);
     try {
-      // Get business_id for RLS compliance
-      const { data: businessId } = await supabase.rpc('get_user_business_id');
-      if (!businessId) {
-        toast.error("Erro: não foi possível identificar o negócio");
-        setLoading(false);
-        return;
-      }
+      // Get the current active date for this business
+      const { data: dayState, error: dayError } = await supabase
+        .from("business_day_state")
+        .select("active_date_yyyymmdd")
+        .eq("business_id", businessId)
+        .single();
+
+      if (dayError) throw dayError;
+      
+      const activeDate = dayState.active_date_yyyymmdd;
 
       // Check if client exists (using business_id for sync)
       const { data: existingClient } = await supabase
@@ -301,8 +305,7 @@ const AddServiceModal = ({
           .eq("id", clientId);
       }
 
-      // Add service to daily_services
-      const today = getTodayBrazil();
+      // Add service to daily_services using the business's active date
       const { error: serviceError } = await supabase
         .from("daily_services")
         .insert({
@@ -318,7 +321,7 @@ const AddServiceModal = ({
           vehicle_type: formData.vehicleType,
           value: valueNum,
           status: "pendente",
-          date_yyyymmdd: today,
+          date_yyyymmdd: activeDate,
           created_by_member_id: memberId,
         });
 
@@ -502,35 +505,40 @@ const AddServiceModal = ({
                 min="0"
                 value={formData.value}
                 onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                placeholder="Ex: 80.00"
+                placeholder="0.00"
                 required
-                disabled={loading}
-                className="mt-2 h-12 text-lg font-bold"
+                className="mt-2 h-11 text-lg font-bold"
               />
-              {formData.serviceName !== "Outros" && formData.vehicleType && (
-                <p className="text-sm text-muted-foreground mt-2 font-medium">
-                  💡 Valor auto-preenchido. Você pode editá-lo se necessário.
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                O valor é preenchido automaticamente baseado no tipo de veículo, mas pode ser editado
+              </p>
             </div>
           </div>
 
-          <Button
-            type="submit"
-            className="w-full h-14 bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold text-lg"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                Adicionando...
-              </>
-            ) : (
-              <>
-                ✓ ADICIONAR SERVIÇO
-              </>
-            )}
-          </Button>
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 h-12 font-semibold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-12 bg-gradient-primary hover:shadow-glow font-bold text-lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "✓ ADICIONAR SERVIÇO"
+              )}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_day_state: {
+        Row: {
+          active_date_yyyymmdd: string
+          business_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          active_date_yyyymmdd: string
+          business_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          active_date_yyyymmdd?: string
+          business_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_day_state_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_invites: {
         Row: {
           business_id: string
