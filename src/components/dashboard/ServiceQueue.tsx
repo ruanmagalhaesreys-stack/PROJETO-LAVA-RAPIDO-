@@ -4,8 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle, Clock, RefreshCw, Car } from "lucide-react";
+import { CheckCircle, Clock, RefreshCw, Car, ChevronLeft, ChevronRight, Phone, Eye } from "lucide-react";
 import { getTodayBrazil } from "@/lib/dateUtils";
+import { format, addDays, subDays, parse } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import ServiceDetailsModal from "./ServiceDetailsModal";
 
 interface Service {
   id: string;
@@ -35,7 +38,10 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState<string | null>(null);
+  const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     initializeAndFetch();
@@ -43,9 +49,9 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
   // Set up realtime subscription for services
   useEffect(() => {
-    if (!businessId || !activeDate) return;
+    if (!businessId) return;
 
-    const channel = supabase
+    const servicesChannel = supabase
       .channel('services-realtime')
       .on(
         'postgres_changes',
@@ -56,16 +62,39 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
           filter: `business_id=eq.${businessId}`
         },
         () => {
-          // Refetch when any change happens
-          fetchServices(businessId, activeDate);
+          if (viewingDate) {
+            fetchServices(businessId, viewingDate);
+          }
+        }
+      )
+      .subscribe();
+
+    const dayStateChannel = supabase
+      .channel('day-state-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'business_day_state',
+          filter: `business_id=eq.${businessId}`
+        },
+        (payload) => {
+          if (payload.new && 'active_date_yyyymmdd' in payload.new) {
+            const newActiveDate = payload.new.active_date_yyyymmdd as string;
+            setActiveDate(newActiveDate);
+            setViewingDate(newActiveDate);
+            fetchServices(businessId, newActiveDate);
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(servicesChannel);
+      supabase.removeChannel(dayStateChannel);
     };
-  }, [businessId, activeDate]);
+  }, [businessId, viewingDate]);
 
   const initializeAndFetch = async () => {
     try {
@@ -106,6 +135,7 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
       }
 
       setActiveDate(currentActiveDate);
+      setViewingDate(currentActiveDate);
       await fetchServices(bizId, currentActiveDate);
     } catch (error) {
       console.error("Error initializing:", error);
@@ -116,6 +146,7 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
   const fetchServices = async (bizId: string, date: string) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from("daily_services")
         .select("*")
@@ -190,31 +221,102 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
   };
 
   const handleNewDay = async () => {
-    if (!businessId) return;
+    if (!businessId) {
+      toast.error("Erro: Negócio não encontrado");
+      return;
+    }
     
     try {
       const today = getTodayBrazil();
       
-      // Update the active date to today
-      const { error } = await supabase
+      // Check if we already have a record for this business
+      const { data: existingState, error: checkError } = await supabase
         .from("business_day_state")
-        .update({ active_date_yyyymmdd: today })
-        .eq("business_id", businessId);
+        .select("*")
+        .eq("business_id", businessId)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (checkError) throw checkError;
+
+      if (existingState) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from("business_day_state")
+          .update({ 
+            active_date_yyyymmdd: today,
+            updated_at: new Date().toISOString()
+          })
+          .eq("business_id", businessId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from("business_day_state")
+          .insert({
+            business_id: businessId,
+            active_date_yyyymmdd: today
+          });
+
+        if (insertError) throw insertError;
+      }
 
       setActiveDate(today);
+      setViewingDate(today);
+      await fetchServices(businessId, today);
       toast.success("Novo dia iniciado!");
-      onRefresh();
     } catch (error) {
       console.error("Error starting new day:", error);
       toast.error("Erro ao iniciar novo dia");
     }
   };
 
-  const hasPendingServices = services.some(s => s.status === "pendente");
+  const navigateDay = (direction: 'prev' | 'next') => {
+    if (!viewingDate || !businessId) return;
+    
+    const currentDate = parse(viewingDate, 'yyyy-MM-dd', new Date());
+    const newDate = direction === 'prev' 
+      ? subDays(currentDate, 1) 
+      : addDays(currentDate, 1);
+    const newDateStr = format(newDate, 'yyyy-MM-dd');
+    
+    setViewingDate(newDateStr);
+    fetchServices(businessId, newDateStr);
+  };
 
-  if (loading) {
+  const goToActiveDay = () => {
+    if (!activeDate || !businessId) return;
+    setViewingDate(activeDate);
+    fetchServices(businessId, activeDate);
+  };
+
+  const formatDisplayDate = (dateStr: string) => {
+    try {
+      const date = parse(dateStr, 'yyyy-MM-dd', new Date());
+      return format(date, "dd 'de' MMMM, yyyy", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const handleOpenDetails = (service: Service) => {
+    setSelectedService(service);
+    setDetailsModalOpen(true);
+  };
+
+  const handleServiceDeleted = () => {
+    if (viewingDate && businessId) {
+      fetchServices(businessId, viewingDate);
+    }
+    onRefresh();
+  };
+
+  const isViewingActiveDay = viewingDate === activeDate;
+  const hasPendingServices = services.some(s => s.status === "pendente");
+  const today = getTodayBrazil();
+  const isActiveDayToday = activeDate === today;
+
+  if (loading && !viewingDate) {
     return (
       <div className="flex justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -224,46 +326,100 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-3 flex-wrap items-center">
-        <Button
-          onClick={handleNewDay}
-          variant="outline"
-          disabled={hasPendingServices}
-          className={`border-2 transition-all duration-300 font-semibold ${
-            hasPendingServices 
-              ? "opacity-50" 
-              : "hover:bg-primary/10 hover:border-primary hover:text-primary"
-          }`}
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Novo Dia
-        </Button>
-        
-        {hasPendingServices && (
-          <p className="text-sm text-muted-foreground flex items-center font-medium">
-            Finalize todos os serviços pendentes para iniciar um novo dia
-          </p>
-        )}
+      {/* Day Navigation */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <Button
+            onClick={() => navigateDay('prev')}
+            variant="outline"
+            size="icon"
+            className="h-10 w-10"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
 
-        {activeDate && (
-          <Badge variant="outline" className="ml-auto font-mono">
-            📅 {activeDate}
-          </Badge>
-        )}
+          <div className="flex-1 text-center">
+            <p className="text-lg font-bold">{viewingDate && formatDisplayDate(viewingDate)}</p>
+            {!isViewingActiveDay && (
+              <Button
+                variant="link"
+                onClick={goToActiveDay}
+                className="text-sm text-primary p-0 h-auto"
+              >
+                ← Voltar ao dia ativo
+              </Button>
+            )}
+          </div>
+
+          <Button
+            onClick={() => navigateDay('next')}
+            variant="outline"
+            size="icon"
+            className="h-10 w-10"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="flex gap-3 flex-wrap items-center justify-center">
+          {isViewingActiveDay && (
+            <>
+              <Button
+                onClick={handleNewDay}
+                variant="outline"
+                disabled={hasPendingServices || isActiveDayToday}
+                className={`border-2 transition-all duration-300 font-semibold ${
+                  hasPendingServices || isActiveDayToday
+                    ? "opacity-50" 
+                    : "hover:bg-primary/10 hover:border-primary hover:text-primary"
+                }`}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Novo Dia
+              </Button>
+              
+              {hasPendingServices && (
+                <p className="text-sm text-muted-foreground flex items-center font-medium">
+                  Finalize todos os serviços para iniciar um novo dia
+                </p>
+              )}
+              
+              {!hasPendingServices && isActiveDayToday && (
+                <p className="text-sm text-muted-foreground flex items-center font-medium">
+                  O dia ativo já é hoje
+                </p>
+              )}
+            </>
+          )}
+
+          {isViewingActiveDay && (
+            <Badge variant="default" className="bg-primary font-bold">
+              DIA ATIVO
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {services.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : services.length === 0 ? (
         <Card className="p-16 text-center glass-effect hover-lift">
           <Clock className="h-20 w-20 mx-auto mb-6 text-muted-foreground opacity-50" />
-          <h3 className="text-2xl font-bold mb-3">Nenhum serviço hoje</h3>
+          <h3 className="text-2xl font-bold mb-3">Nenhum serviço {isViewingActiveDay ? "hoje" : "neste dia"}</h3>
           <p className="text-muted-foreground text-lg">
-            Adicione o primeiro serviço do dia
+            {isViewingActiveDay ? "Adicione o primeiro serviço do dia" : "Sem registros para esta data"}
           </p>
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => (
-            <Card key={service.id} className="glass-effect hover-lift overflow-hidden border-l-4 border-l-primary">
+            <Card 
+              key={service.id} 
+              className="glass-effect hover-lift overflow-hidden border-l-4 border-l-primary cursor-pointer transition-all hover:shadow-lg"
+              onClick={() => handleOpenDetails(service)}
+            >
               <div className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
                   <Badge
@@ -275,11 +431,24 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
                   >
                     {service.status === "finalizado" ? "✓ PRONTO" : "⏳ EM LAVAGEM"}
                   </Badge>
-                  {service.vehicle_type && (
-                    <Badge className="font-bold px-3 py-1 bg-primary/20 text-primary border border-primary/30">
-                      {service.vehicle_type}
-                    </Badge>
-                  )}
+                  <div className="flex gap-2">
+                    {service.vehicle_type && (
+                      <Badge className="font-bold px-3 py-1 bg-primary/20 text-primary border border-primary/30">
+                        {service.vehicle_type}
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDetails(service);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex items-start gap-3">
@@ -299,6 +468,12 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
                       {service.client_name} • {service.car_plate}
                     </p>
                   </div>
+                </div>
+
+                {/* Phone display */}
+                <div className="flex items-center gap-2 bg-secondary/30 px-3 py-2 rounded-lg">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{service.client_phone}</span>
                 </div>
 
                 <div className="h-px bg-border/50"></div>
@@ -324,9 +499,12 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
                   </div>
                 )}
 
-                {service.status === "pendente" && (
+                {service.status === "pendente" && isViewingActiveDay && (
                   <Button
-                    onClick={() => handleFinishService(service)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFinishService(service);
+                    }}
                     className="w-full bg-gradient-success hover:shadow-success transition-all duration-300 hover:scale-105 font-bold"
                   >
                     <CheckCircle className="h-5 w-5 mr-2" />
@@ -338,6 +516,13 @@ const ServiceQueue = ({ userId, refreshTrigger, onRefresh }: ServiceQueueProps) 
           ))}
         </div>
       )}
+
+      <ServiceDetailsModal
+        open={detailsModalOpen}
+        onOpenChange={setDetailsModalOpen}
+        service={selectedService}
+        onServiceDeleted={handleServiceDeleted}
+      />
     </div>
   );
 };
