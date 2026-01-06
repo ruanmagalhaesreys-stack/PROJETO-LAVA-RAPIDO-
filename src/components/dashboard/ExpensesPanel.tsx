@@ -26,6 +26,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import PayExpenseModal from "./PayExpenseModal";
 import AddExpenseModal from "./AddExpenseModal";
 
@@ -251,9 +252,9 @@ const ExpensesPanel = ({ userId }: ExpensesPanelProps) => {
               const date = new Date();
               date.setMonth(date.getMonth() - i);
               const value = format(date, "yyyy-MM");
-              const label = format(date, "MMMM yyyy");
+              const label = format(date, "MMMM 'de' yyyy", { locale: ptBR });
               return (
-                <SelectItem key={value} value={value}>
+                <SelectItem key={value} value={value} className="capitalize">
                   {label}
                 </SelectItem>
               );
