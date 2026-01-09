@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Settings, Save, Users, Copy, Trash2, UserCheck, Key, LogOut, Building } from "lucide-react";
 
@@ -466,76 +466,79 @@ const AdminPanel = ({ userId, userRole }: AdminPanelProps) => {
         </div>
 
         <div className="p-6 space-y-6">
-          <Tabs value={selectedVehicleType} onValueChange={setSelectedVehicleType}>
-            <TabsList className="flex flex-wrap gap-2 h-auto p-2 bg-secondary/30 w-full">
-              {VEHICLE_TYPES.map((type) => (
-                <TabsTrigger
-                  key={type.value}
-                  value={type.value}
-                  className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground font-semibold py-2 px-3 text-xs sm:text-sm flex-shrink-0"
-                >
-                  <span className="mr-1">{type.icon}</span>
-                  <span className="hidden sm:inline">{type.label.split("(")[0].trim()}</span>
-                  <span className="sm:hidden">{type.value === "CAMINHONETE" ? "Caminhon." : type.label.split(" ")[0]}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {VEHICLE_TYPES.map((type) => (
-              <TabsContent key={type.value} value={type.value} className="space-y-4 mt-6">
-                {currentPrices.map((price) => (
-                  <div
-                    key={`${price.service_name}-${price.vehicle_type}`}
-                    className="flex items-center gap-4 p-4 bg-secondary/30 rounded-xl hover-lift"
+          <div className="space-y-2">
+            <Label className="text-base font-bold">Selecione o Tipo de Veículo</Label>
+            <Select value={selectedVehicleType} onValueChange={setSelectedVehicleType}>
+              <SelectTrigger className="w-full h-12 text-base font-semibold bg-secondary/30">
+                <SelectValue placeholder="Selecione o veículo" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border z-50">
+                {VEHICLE_TYPES.map((type) => (
+                  <SelectItem 
+                    key={type.value} 
+                    value={type.value}
+                    className="text-base font-medium py-3"
                   >
-                    <div className="flex-1">
-                      <Label className="font-bold text-lg">{price.service_name}</Label>
-                    </div>
-                    <div className="w-48">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={price.price}
-                        onChange={(e) =>
-                          handlePriceChange(
-                            price.service_name,
-                            price.vehicle_type,
-                            e.target.value
-                          )
-                        }
-                        className="text-right h-11 font-bold text-lg bg-background"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
+                    <span className="mr-2">{type.icon}</span>
+                    {type.label}
+                  </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-                <Button
-                  onClick={handleSavePrices}
-                  className="w-full mt-6 bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-5 w-5" />
-                      SALVAR PREÇOS PARA {type.label.toUpperCase()}
-                    </>
-                  )}
-                </Button>
-
-                <p className="text-sm text-muted-foreground text-center font-medium">
-                  💡 Dica: Configure preços realistas para cada tipo de veículo. Geralmente SUVs e
-                  Caminhonetes têm valores maiores.
-                </p>
-              </TabsContent>
+          <div className="space-y-4">
+            {currentPrices.map((price) => (
+              <div
+                key={`${price.service_name}-${price.vehicle_type}`}
+                className="flex items-center gap-4 p-4 bg-secondary/30 rounded-xl hover-lift"
+              >
+                <div className="flex-1">
+                  <Label className="font-bold text-lg">{price.service_name}</Label>
+                </div>
+                <div className="w-32 sm:w-48">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={price.price}
+                    onChange={(e) =>
+                      handlePriceChange(
+                        price.service_name,
+                        selectedVehicleType,
+                        e.target.value
+                      )
+                    }
+                    className="text-right h-11 font-bold text-lg bg-background"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
             ))}
-          </Tabs>
+
+            <Button
+              onClick={handleSavePrices}
+              className="w-full mt-6 bg-gradient-accent hover:shadow-accent transition-all duration-300 hover:scale-105 font-bold h-12 text-lg"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-5 w-5" />
+                  SALVAR PREÇOS
+                </>
+              )}
+            </Button>
+
+            <p className="text-sm text-muted-foreground text-center font-medium">
+              💡 Dica: Configure preços realistas para cada tipo de veículo. Geralmente SUVs e
+              Caminhonetes têm valores maiores.
+            </p>
+          </div>
         </div>
       </Card>
 
