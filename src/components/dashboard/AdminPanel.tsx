@@ -467,15 +467,16 @@ const AdminPanel = ({ userId, userRole }: AdminPanelProps) => {
 
         <div className="p-6 space-y-6">
           <Tabs value={selectedVehicleType} onValueChange={setSelectedVehicleType}>
-            <TabsList className="grid w-full grid-cols-6 h-auto p-1 bg-secondary/30">
+            <TabsList className="flex flex-wrap gap-2 h-auto p-2 bg-secondary/30 w-full">
               {VEHICLE_TYPES.map((type) => (
                 <TabsTrigger
                   key={type.value}
                   value={type.value}
-                  className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground font-semibold py-3 px-2 text-xs sm:text-sm"
+                  className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground font-semibold py-2 px-3 text-xs sm:text-sm flex-shrink-0"
                 >
-                  <span className="hidden sm:inline">{type.icon} </span>
-                  {type.label.split("(")[0].trim()}
+                  <span className="mr-1">{type.icon}</span>
+                  <span className="hidden sm:inline">{type.label.split("(")[0].trim()}</span>
+                  <span className="sm:hidden">{type.value === "CAMINHONETE" ? "Caminhon." : type.label.split(" ")[0]}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
